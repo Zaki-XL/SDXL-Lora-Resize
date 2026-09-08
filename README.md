@@ -55,7 +55,8 @@
 
 ### 6. プレビュー画像 & メタデータ同期
 - モデルファイルと同階層にあるプレビュー画像（`.png`, `.jpg`, `.webp`）を変換後のファイル名に合わせて自動リネームコピー。
-- Civitai連携等の `*.metadata.json` 内のモデルファイル名、Rank、Alpha、量子化タグ、変換履歴を自動更新。
+- **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) 対応**:
+  人気拡張機能 ComfyUI-Lora-Manager に対応しており、関連する JSON ファイル（`*.metadata.json`）内のモデルファイル名、新 Rank、新 Alpha、量子化タグ、変換履歴を自動修正・同期出力します。
 
 ### 7. 破損ファイル自動検知 & 整合性ベリファイ
 - ドラッグ＆ドロップ時にヘッダーを事前スキャンし、破損ファイルや空ファイルを赤文字・太字で強調表示し、変換対象から自動除外。
@@ -76,7 +77,7 @@
 
 ### ステップ 1: リポジトリのクローン
 ```bash
-git clone https://github.com/your-username/SDXL-Lora-Resize.git
+git clone https://github.com/Zaki-XL/SDXL-Lora-Resize.git
 cd SDXL-Lora-Resize
 ```
 

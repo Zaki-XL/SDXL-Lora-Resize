@@ -55,7 +55,8 @@ Choose the optimal precision for your GPU architecture and target environment (W
 
 ### 6. Sidecar Images & Metadata Synchronization
 - Automatically copies and renames associated preview images (`.png`, `.jpg`, `.webp`) to match the new output model name.
-- Automatically updates model filenames, Rank, Alpha, quantization tags, and conversion history in Civitai-compatible `*.metadata.json` files.
+- **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) Support**:
+  Full compatibility with the popular ComfyUI-Lora-Manager extension. Automatically modifies and synchronizes model filenames, new Rank, new Alpha, quantization tags, and conversion history inside the corresponding `*.metadata.json` sidecar files.
 
 ### 7. File Corruption Detection & Automatic Integrity Verification
 - Automatically inspects safetensors headers during drag & drop, highlighting corrupt or 0-byte files in bold red and safely excluding them from processing.
@@ -76,7 +77,7 @@ Choose the optimal precision for your GPU architecture and target environment (W
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/your-username/SDXL-Lora-Resize.git
+git clone https://github.com/Zaki-XL/SDXL-Lora-Resize.git
 cd SDXL-Lora-Resize
 ```
 

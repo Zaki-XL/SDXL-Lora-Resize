@@ -55,7 +55,8 @@
 
 ### 6. 关联预览图与元数据自动同步
 - 自动复制并重命名同目录下的模型预览图（`.png`, `.jpg`, `.webp`）以匹配转换后的新文件名。
-- 自动更新 Civitai 等工具生成的 `*.metadata.json` 内部的模型名称、Rank、Alpha、量化标签及转换历史。
+- **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) 深度支持**:
+  全面兼容流行扩展 ComfyUI-Lora-Manager，自动修改并同步 `*.metadata.json` 内部的模型文件名、新 Rank、新 Alpha、量化标签及转换历史记录。
 
 ### 7. 损坏文件预检与完整性校验
 - 拖放文件时自动预检 Safetensors 文件头，对损坏或 0 字节文件进行红字加粗高亮，并自动从转换列表中剔除。
@@ -76,7 +77,7 @@
 
 ### 第一步: 克隆代码仓库
 ```bash
-git clone https://github.com/your-username/SDXL-Lora-Resize.git
+git clone https://github.com/Zaki-XL/SDXL-Lora-Resize.git
 cd SDXL-Lora-Resize
 ```
 
