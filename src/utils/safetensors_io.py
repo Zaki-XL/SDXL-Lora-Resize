@@ -133,9 +133,12 @@ def inspect_model_metadata(filepath: str) -> dict:
         dtype_param_counter[dtype] += numel
         total_params += numel
 
-        if "lora" in name.lower() or "lora_a" in name.lower() or "lora_down" in name.lower():
+        nl = name.lower()
+        if "lora" in nl or "hada" in nl or "lokr" in nl:
             lora_keys += 1
-            if ("lora_down" in name or "lora_A" in name or "lora_down.weight" in name) and shape:
+            if ("hada_w1_a" in nl or "hada_w2_a" in nl) and shape:
+                detected_ranks.append(min(shape))
+            elif ("lora_down" in nl or "lora.down" in nl or "lora_a" in nl or "lora.a" in nl or ".down.weight" in nl) and shape:
                 detected_ranks.append(shape[0])
 
         if is_vae_tensor(name):
@@ -153,8 +156,39 @@ def inspect_model_metadata(filepath: str) -> dict:
     primary_dtype_code = dtype_param_counter.most_common(1)[0][0] if dtype_param_counter else "F32"
     primary_dtype_name = DTYPE_NAMES.get(primary_dtype_code, primary_dtype_code)
 
-    # 元Rank (Dim) の特定
-    if detected_ranks:
+    # 1. メタデータからのアルゴリズム・Rank検出 (最優先)
+    algo = ""
+    meta_dim = None
+    meta_conv_dim = None
+    module_str = str(metadata.get("ss_network_module", "")).lower()
+
+    args_raw = metadata.get("ss_network_args", "")
+    if args_raw:
+        try:
+            if isinstance(args_raw, str):
+                args_dict = json.loads(args_raw)
+            else:
+                args_dict = dict(args_raw)
+            algo = str(args_dict.get("algo", "")).lower()
+            if "conv_dim" in args_dict:
+                meta_conv_dim = int(float(args_dict["conv_dim"]))
+        except Exception:
+            pass
+
+    if "ss_network_dim" in metadata:
+        try:
+            meta_dim = int(float(metadata["ss_network_dim"]))
+        except Exception:
+            pass
+
+    # 元Rank (Dim) の決定
+    if meta_dim is not None and meta_dim > 0:
+        orig_rank = meta_dim
+        if meta_conv_dim is not None and meta_conv_dim > 0 and meta_conv_dim != meta_dim:
+            orig_rank_str = f"Rank {meta_dim} (Conv {meta_conv_dim})"
+        else:
+            orig_rank_str = f"Rank {meta_dim}"
+    elif detected_ranks:
         most_common_rank = Counter(detected_ranks).most_common(1)[0][0]
         orig_rank = most_common_rank
         orig_rank_str = f"Rank {most_common_rank}"
@@ -162,13 +196,30 @@ def inspect_model_metadata(filepath: str) -> dict:
         orig_rank = 0
         orig_rank_str = "-"
 
-    # モデル種別の判定
-    if lora_keys > 0 or detected_ranks:
-        if has_sdxl_unet or "sdxl" in str(metadata).lower():
+    # 2. モデル種別の判定
+    is_lycoris = ("lycoris" in module_str or "hada" in str(list(tensors.keys())).lower() or "lokr" in str(list(tensors.keys())).lower())
+    is_sdxl = (has_sdxl_unet or "sdxl" in str(metadata).lower() or any("conditioner" in k for k in tensors))
+
+    if is_lycoris or algo:
+        if algo == "loha" or any("hada" in k.lower() for k in tensors):
+            model_type = "LyCORIS (LoHa)"
+        elif algo == "locon" or any("conv" in k.lower() for k in tensors):
+            model_type = "LyCORIS (LoCon)"
+        elif algo == "lokr" or any("lokr" in k.lower() for k in tensors):
+            model_type = "LyCORIS (LoKr)"
+        else:
+            algo_name = algo.upper() if algo else "LoRA"
+            model_type = f"LyCORIS ({algo_name})"
+    elif lora_keys > 0 or detected_ranks:
+        if is_sdxl:
             model_type = "SDXL LoRA"
+        elif "flux" in str(metadata).lower() or any("double_blocks" in k for k in tensors):
+            model_type = "FLUX.1 LoRA"
+        elif has_sd15_unet or len(tensors) < 400:
+            model_type = "SD 1.5 LoRA"
         else:
             model_type = "LoRA モデル"
-    elif has_sdxl_unet or len(tensors) > 450:
+    elif is_sdxl or len(tensors) > 450:
         model_type = "SDXL Checkpoint"
     elif "flux" in str(metadata).lower() or any("double_blocks" in k for k in tensors):
         model_type = "FLUX.1 Model"
@@ -185,7 +236,7 @@ def inspect_model_metadata(filepath: str) -> dict:
         params_str = f"{total_params:,}"
 
     vae_dtype_str = "/".join([DTYPE_NAMES.get(d, d) for d in vae_dtypes]) if vae_dtypes else "なし"
-    summary = f"{primary_dtype_code} ({model_type}, {params_str})"
+    summary = f"{primary_dtype_code} ({params_str})"
 
     return {
         "is_valid": True,

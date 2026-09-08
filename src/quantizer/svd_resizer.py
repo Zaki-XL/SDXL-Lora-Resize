@@ -40,6 +40,38 @@ def low_rank_svd(up_mat: torch.Tensor, down_mat: torch.Tensor, target_rank: int)
     new_down_mat = torch.mm(sqrt_S, Vh_k)
     return new_up_mat, new_down_mat
 
+def find_lora_pairs(state_dict: dict) -> list[tuple[str, str, str | None]]:
+    """
+    state_dict 内から LoRA の (down_key, up_key, alpha_key) のペア一覧を抽出します。
+    Kohya (lora_down/up), Diffusers (lora_A/B, lora.down/up, lora_a/b, .down/.up), LyCORIS 等の多様な形式に対応。
+    """
+    key_lower_map = {k.lower(): k for k in state_dict.keys()}
+    pairs = []
+    
+    patterns = [
+        ("lora_down.weight", "lora_up.weight", "alpha"),
+        ("lora.down.weight", "lora.up.weight", "alpha"),
+        ("lora_a.weight", "lora_b.weight", "alpha"),
+        ("lora.a.weight", "lora.b.weight", "alpha"),
+        (".down.weight", ".up.weight", ".alpha"),
+        ("hada_w1_a", "hada_w1_b", "alpha"),
+        ("hada_w2_a", "hada_w2_b", "alpha"),
+    ]
+    
+    for orig_k in state_dict.keys():
+        kl = orig_k.lower()
+        for down_pat, up_pat, alpha_pat in patterns:
+            if down_pat in kl:
+                target_up = kl.replace(down_pat, up_pat)
+                up_k = key_lower_map.get(target_up)
+                if up_k:
+                    target_alpha = kl.replace(down_pat, alpha_pat)
+                    alpha_k = key_lower_map.get(target_alpha)
+                    pairs.append((orig_k, up_k, alpha_k))
+                break
+
+    return pairs
+
 class SVDResizer(BaseQuantizer):
     """
     LoRAの重みペア (lora_down.weight, lora_up.weight) を SVD 分解し、
@@ -65,29 +97,16 @@ class SVDResizer(BaseQuantizer):
         out_metadata = {str(mk): str(mv) for mk, mv in orig_metadata.items()}
         
         # LoRA ペア (down / up) のマッピングを検出
-        down_keys = [k for k in state_dict.keys() if "lora_down.weight" in k or "lora_A.weight" in k]
+        pairs = find_lora_pairs(state_dict)
         
         start_time = time.time()
         processed_pairs = 0
         processed_keys = set()
 
         with torch.inference_mode():
-            for idx, down_k in enumerate(down_keys):
+            for idx, (down_k, up_k, alpha_k) in enumerate(pairs):
                 if self.is_cancelled:
                     return False
-
-                # 対応する up_key を特定
-                if "lora_down.weight" in down_k:
-                    up_k = down_k.replace("lora_down.weight", "lora_up.weight")
-                    alpha_k = down_k.replace("lora_down.weight", "alpha")
-                elif "lora_A.weight" in down_k:
-                    up_k = down_k.replace("lora_A.weight", "lora_B.weight")
-                    alpha_k = down_k.replace("lora_A.weight", "alpha")
-                else:
-                    continue
-
-                if up_k not in state_dict:
-                    continue
 
                 down_t = state_dict[down_k]
                 up_t = state_dict[up_k]
@@ -158,8 +177,8 @@ class SVDResizer(BaseQuantizer):
 
                 if progress_callback:
                     elapsed = time.time() - start_time
-                    speed_mb = (os.path.getsize(input_path) * (idx + 1) / len(down_keys)) / (1024 * 1024 * max(0.001, elapsed))
-                    progress_callback(idx + 1, len(down_keys), down_k, speed_mb)
+                    speed_mb = (os.path.getsize(input_path) * (idx + 1) / max(1, len(pairs))) / (1024 * 1024 * max(0.001, elapsed))
+                    progress_callback(idx + 1, len(pairs), down_k, speed_mb)
 
         # その他の残りのテンソル（バイアス、メタデータ、その他の重み）をそのままコピー
         for k, v in state_dict.items():

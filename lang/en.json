@@ -6,9 +6,10 @@
     "drop_hint": "Drag & Drop .safetensors files here\n(Dropping files will reset the current list)",
     "table": {
       "col_orig_name": "Original Filename",
+      "col_model_type": "Model Type",
       "col_orig_rank": "Orig Rank",
       "col_sidecars": "Sidecars",
-      "col_format": "Data Format",
+      "col_format": "Data Precision",
       "col_out_name": "Output Filename",
       "col_orig_size": "Orig Size",
       "col_est_size": "Est Size",

@@ -6,9 +6,10 @@
     "drop_hint": "将 .safetensors 文件拖放到此处\n（拖放新文件将清空并更新列表）",
     "table": {
       "col_orig_name": "原文件名",
+      "col_model_type": "判定格式",
       "col_orig_rank": "原Rank",
       "col_sidecars": "附属文件",
-      "col_format": "原始格式",
+      "col_format": "数据精度",
       "col_out_name": "转换后文件名",
       "col_orig_size": "原大小",
       "col_est_size": "预估大小",

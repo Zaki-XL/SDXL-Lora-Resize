@@ -6,7 +6,7 @@ from safetensors.torch import load_file, save_file
 from .base import BaseQuantizer
 from ..utils.safetensors_io import is_vae_tensor, read_safetensors_header
 
-from .svd_resizer import low_rank_svd
+from .svd_resizer import low_rank_svd, find_lora_pairs
 
 class CombinedPipelineConverter(BaseQuantizer):
     def __init__(self, svd_rank: str, precision_key: str, keep_vae_fp16: bool = True):
@@ -47,8 +47,8 @@ class CombinedPipelineConverter(BaseQuantizer):
         with torch.inference_mode():
             # ---------------- 1. SVD Rank Resize (LoRAの場合) ----------------
             if self.has_svd:
-                down_keys = [k for k in state_dict.keys() if "lora_down.weight" in k or "lora_A.weight" in k]
-                total_pairs = len(down_keys)
+                pairs = find_lora_pairs(state_dict)
+                total_pairs = len(pairs)
                 dev = self.device if self.device.type == "cuda" else torch.device("cpu")
 
                 if log_callback and total_pairs > 0:
@@ -57,19 +57,9 @@ class CombinedPipelineConverter(BaseQuantizer):
                 svd_start_time = time.time()
                 log_interval = max(1, total_pairs // 5)  # 約20%刻みでログ通知
 
-                for p_idx, down_k in enumerate(down_keys):
+                for p_idx, (down_k, up_k, alpha_k) in enumerate(pairs):
                     if self.is_cancelled:
                         return False
-
-                    if "lora_down.weight" in down_k:
-                        up_k = down_k.replace("lora_down.weight", "lora_up.weight")
-                        alpha_k = down_k.replace("lora_down.weight", "alpha")
-                    else:
-                        up_k = down_k.replace("lora_A.weight", "lora_B.weight")
-                        alpha_k = down_k.replace("lora_A.weight", "alpha")
-
-                    if up_k not in state_dict:
-                        continue
 
                     down_t = state_dict[down_k]
                     up_t = state_dict[up_k]

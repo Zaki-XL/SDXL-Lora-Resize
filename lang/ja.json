@@ -6,9 +6,10 @@
     "drop_hint": "ここに .safetensors ファイルをドラッグ＆ドロップ\n（ドロップすると一覧が新規更新されます）",
     "table": {
       "col_orig_name": "元ファイル名",
+      "col_model_type": "判定形式",
       "col_orig_rank": "元Rank",
       "col_sidecars": "付属ファイル",
-      "col_format": "元データ形式",
+      "col_format": "データ精度",
       "col_out_name": "変換後ファイル名",
       "col_orig_size": "元サイズ",
       "col_est_size": "推定後サイズ",

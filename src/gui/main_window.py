@@ -46,28 +46,57 @@ class DropAreaWidget(QFrame):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
     def dropEvent(self, event: QDropEvent):
-        files = []
-        for url in event.mimeData().urls():
-            file_path = url.toLocalFile()
-            if os.path.isfile(file_path):
-                files.append(file_path)
-            elif os.path.isdir(file_path):
-                for root, _, filenames in os.walk(file_path):
-                    for fn in filenames:
-                        if fn.lower().endswith(".safetensors"):
-                            files.append(os.path.join(root, fn))
-        if files:
-            # 2. ドラッグ＆ドロップ時に既存の選択ファイルをクリアし、進捗バーを0にリセット
-            self.parent_window.clear_files()
-            self.parent_window.reset_progress_bars()
-            self.parent_window.add_files(files)
+        try:
+            files = []
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if os.path.isfile(file_path):
+                    if file_path.lower().endswith(".safetensors"):
+                        files.append(file_path)
+                elif os.path.isdir(file_path):
+                    for root, _, filenames in os.walk(file_path):
+                        for fn in filenames:
+                            if fn.lower().endswith(".safetensors"):
+                                files.append(os.path.join(root, fn))
+            if files:
+                # 2. ドラッグ＆ドロップ時に既存の選択ファイルをクリアし、進捗バーを0にリセット
+                self.parent_window.clear_files()
+                self.parent_window.reset_progress_bars()
+                self.parent_window.add_files(files)
+        except Exception as e:
+            self.parent_window.log(f"[エラー] D&Dファイル処理中に例外が発生しました: {e}")
+        finally:
+            event.acceptProposedAction()
 
 class FileTableWidget(QTableWidget):
-    """Deleteキーによる選択行削除に対応したカスタムTableWidget"""
+    """Deleteキーによる選択行削除およびD&D追加に対応したカスタムTableWidget"""
     def __init__(self, parent_window):
-        super().__init__(0, 9)
+        super().__init__(0, 10)
         self.parent_window = parent_window
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event: QDropEvent):
+        if event.mimeData().hasUrls():
+            self.parent_window.drop_area.dropEvent(event)
+        else:
+            super().dropEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
@@ -125,10 +154,11 @@ class MainWindow(QMainWindow):
         self.drop_area.setFixedHeight(70)
         main_layout.addWidget(self.drop_area)
 
-        # 2. ファイル一覧テーブル (9カラム)
+        # 2. ファイル一覧テーブル (10カラム)
         self.table = FileTableWidget(self)
         self.table.setHorizontalHeaderLabels([
             t("main.table.col_orig_name"),
+            t("main.table.col_model_type"),
             t("main.table.col_orig_rank"),
             t("main.table.col_sidecars"),
             t("main.table.col_format"),
@@ -158,18 +188,19 @@ class MainWindow(QMainWindow):
         """)
 
         header = self.table.horizontalHeader()
-        for i in range(9):
+        for i in range(10):
             header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
         
-        self.table.setColumnWidth(0, 200) # 元ファイル名
-        self.table.setColumnWidth(1, 80)  # 元Rank
-        self.table.setColumnWidth(2, 110) # 付属ファイル
-        self.table.setColumnWidth(3, 150) # 元データ形式
-        self.table.setColumnWidth(4, 240) # 変換後ファイル名
-        self.table.setColumnWidth(5, 85)  # 元サイズ
-        self.table.setColumnWidth(6, 95)  # 推定後サイズ
-        self.table.setColumnWidth(7, 75)  # 削減率
-        self.table.setColumnWidth(8, 120) # ステータス
+        self.table.setColumnWidth(0, 190) # 元ファイル名
+        self.table.setColumnWidth(1, 130) # 判定形式
+        self.table.setColumnWidth(2, 80)  # 元Rank
+        self.table.setColumnWidth(3, 95)  # 付属ファイル
+        self.table.setColumnWidth(4, 115) # データ精度
+        self.table.setColumnWidth(5, 210) # 変換後ファイル名
+        self.table.setColumnWidth(6, 80)  # 元サイズ
+        self.table.setColumnWidth(7, 85)  # 推定後サイズ
+        self.table.setColumnWidth(8, 70)  # 削減率
+        self.table.setColumnWidth(9, 110) # ステータス
 
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         main_layout.addWidget(self.table)
@@ -471,6 +502,7 @@ class MainWindow(QMainWindow):
         # テーブルヘッダー
         self.table.setHorizontalHeaderLabels([
             t("main.table.col_orig_name"),
+            t("main.table.col_model_type"),
             t("main.table.col_orig_rank"),
             t("main.table.col_sidecars"),
             t("main.table.col_format"),
@@ -684,8 +716,18 @@ class MainWindow(QMainWindow):
             est = item["est_size"]
             total_orig_bytes += orig
 
-            orig_str = f"{orig / (1024*1024*1024):.2f} GB" if orig > 1024**3 else f"{orig / (1024*1024):.1f} MB"
-            est_str = f"{est / (1024*1024*1024):.2f} GB" if est > 1024**3 else f"{est / (1024*1024):.1f} MB"
+            def _fmt_size(sz: int) -> str:
+                if sz >= 1024**3:
+                    return f"{sz / (1024**3):.2f} GB"
+                elif sz >= 1024**2:
+                    return f"{sz / (1024**2):.1f} MB"
+                elif sz >= 1024:
+                    return f"{sz / 1024:.1f} KB"
+                else:
+                    return f"{sz} B"
+
+            orig_str = _fmt_size(orig)
+            est_str = _fmt_size(est)
             red_pct = (1.0 - (est / orig)) * 100.0 if orig > 0 else 0.0
 
             is_error = item.get("is_error", False) or not item.get("meta", {}).get("is_valid", True)
@@ -701,17 +743,43 @@ class MainWindow(QMainWindow):
             else:
                 item_orig_name.setToolTip(item["orig_path"])
 
+            # 列1: 判定形式
+            model_type_str = item["meta"].get("model_type", "不明")
+            item_type = QTableWidgetItem(model_type_str)
+            item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if is_error:
+                item_type.setForeground(QColor("#dc2626"))
+            elif "LyCORIS" in model_type_str:
+                item_type.setForeground(QColor("#7c3aed"))
+                font_type = item_type.font()
+                font_type.setBold(True)
+                item_type.setFont(font_type)
+            elif "LoRA" in model_type_str:
+                item_type.setForeground(QColor("#2563eb"))
+                font_type = item_type.font()
+                font_type.setBold(True)
+                item_type.setFont(font_type)
+            item_type.setToolTip(
+                f"【判定形式】 {model_type_str}\n"
+                f"元Rank: {item['meta'].get('orig_rank_str')}\n"
+                f"主要精度: {item['meta'].get('primary_dtype')}\n"
+                f"総パラメータ数: {item['meta'].get('total_params_str')}"
+            )
+
+            # 列2: 元Rank
             item_rank = QTableWidgetItem(item["meta"].get("orig_rank_str", "-"))
             item_rank.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if is_error:
                 item_rank.setForeground(QColor("#dc2626"))
 
+            # 列3: 付属ファイル
             sidecar_str = item["sidecars"].get("display_str", "-")
             item_sidecar = QTableWidgetItem(sidecar_str)
             item_sidecar.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if sidecar_str != "-":
                 item_sidecar.setForeground(QColor("#0284c7"))
 
+            # 列4: データ精度
             item_format = QTableWidgetItem(item["meta"].get("summary", "不明"))
             if is_error:
                 item_format.setForeground(QColor("#dc2626"))
@@ -722,11 +790,27 @@ class MainWindow(QMainWindow):
                 f"総パラメータ数: {item['meta'].get('total_params_str')}"
             )
 
+            # 列5: 変換後ファイル名
             item_out_name = QTableWidgetItem(os.path.basename(item["out_path"]))
             item_out_name.setToolTip(item["out_path"])
 
+            # 列6, 7: 元サイズ, 推定後サイズ
             item_orig = QTableWidgetItem(orig_str)
             item_est = QTableWidgetItem(est_str)
+            item_orig.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            item_est.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+            # 列8: 削減率
+            if red_pct >= 0:
+                item_red = QTableWidgetItem(f"-{red_pct:.1f}%")
+                if red_pct > 0:
+                    item_red.setForeground(QColor("#16a34a"))
+            else:
+                item_red = QTableWidgetItem(f"+{abs(red_pct):.1f}%")
+                item_red.setForeground(QColor("#dc2626"))
+            item_red.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # 列9: ステータス
             status_key = item.get("status_key")
             if is_error:
                 status_text = t("main.status.corrupt")
@@ -744,14 +828,15 @@ class MainWindow(QMainWindow):
                 item_status.setForeground(QColor("#d97706"))
 
             self.table.setItem(r, 0, item_orig_name)
-            self.table.setItem(r, 1, item_rank)
-            self.table.setItem(r, 2, item_sidecar)
-            self.table.setItem(r, 3, item_format)
-            self.table.setItem(r, 4, item_out_name)
-            self.table.setItem(r, 5, item_orig)
-            self.table.setItem(r, 6, item_est)
-            self.table.setItem(r, 7, item_red)
-            self.table.setItem(r, 8, item_status)
+            self.table.setItem(r, 1, item_type)
+            self.table.setItem(r, 2, item_rank)
+            self.table.setItem(r, 3, item_sidecar)
+            self.table.setItem(r, 4, item_format)
+            self.table.setItem(r, 5, item_out_name)
+            self.table.setItem(r, 6, item_orig)
+            self.table.setItem(r, 7, item_est)
+            self.table.setItem(r, 8, item_red)
+            self.table.setItem(r, 9, item_status)
 
         # 3. 変換対象件数 & 合計容量の更新
         count = len(self.file_data)
