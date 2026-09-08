@@ -39,7 +39,8 @@
 | **GGUF (Q4_K_M)** | 约 70% | 所有 GPU / CPU | 可被 ComfyUI-GGUF 节点及 sd.cpp 直接读取的高效格式 |
 | **保持原精度** | - | 所有环境 | 不进行量化，仅执行 SVD Rank 缩减（保持 BF16/FP16） |
 
-\* *对比 FP32 原始文件的缩减比例。*
+\* *对比 FP32 原始文件的缩减比例。*  
+\* **注意**: 作者手头没有 RTX 50 系列显卡，因此未在 RTX 50xx 真机上进行过测试（非常欢迎社区的反馈与测试报告！）。
 
 ### 3. VAE 自动保护机制
 - 自动识别 Checkpoint 模型内部的 VAE 张量（`first_stage_model` 等），严格保持 FP16/FP32 精度，杜绝潜在空间解码失真与黑图。
@@ -67,7 +68,8 @@
 ## 🖥️ 运行环境要求
 
 - **操作系统**: Windows 10 / 11 (64-bit)
-- **显卡 (GPU)**: NVIDIA GeForce RTX 20xx / 30xx / 40xx / 50xx 系列（支持 CUDA 11.8 或 12.x 驱动）
+- **显卡 (GPU)**: NVIDIA GeForce RTX 20xx / 30xx / 40xx / 50xx 系列（支持 CUDA 11.8 或 12.x 驱动）  
+  *(※ 作者本人没有 RTX 50 系列显卡，因此未在 50xx 上进行过测试)*
 - **Python**: 3.10 或 3.11
 - **依赖库**: PyTorch, PyQt6, safetensors（通过安装脚本自动配置）
 

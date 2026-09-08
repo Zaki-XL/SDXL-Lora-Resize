@@ -39,7 +39,8 @@ Choose the optimal precision for your GPU architecture and target environment (W
 | **GGUF (Q4_K_M)** | ~70% | All GPUs / CPUs | High-efficiency format directly readable by ComfyUI-GGUF and sd.cpp nodes. |
 | **Keep Original** | - | All Environments | Retains original precision (BF16/FP16) while performing SVD rank reduction only. |
 
-\* *Reduction rate compared to FP32 source file.*
+\* *Reduction rate compared to FP32 source file.*  
+\* **Note**: The author does not own an RTX 50-series GPU, so testing on RTX 50xx hardware has not been conducted (community feedback and testing reports are very welcome!).
 
 ### 3. Automatic VAE Protection Filter
 - Automatically detects VAE tensors (`first_stage_model`, etc.) inside checkpoint models and strictly preserves FP16/FP32 precision, preventing latent decoding breakdown and black images.
@@ -67,7 +68,8 @@ Choose the optimal precision for your GPU architecture and target environment (W
 ## 🖥️ System Requirements
 
 - **OS**: Windows 10 / 11 (64-bit)
-- **GPU**: NVIDIA GeForce RTX 20xx / 30xx / 40xx / 50xx series (CUDA 11.8 or 12.x compatible driver)
+- **GPU**: NVIDIA GeForce RTX 20xx / 30xx / 40xx / 50xx series (CUDA 11.8 or 12.x compatible driver)  
+  *(※ The author does not own an RTX 50xx card, so testing has not been done on 50xx)*
 - **Python**: 3.10 or 3.11
 - **Required Libraries**: PyTorch, PyQt6, safetensors (installed automatically via setup script)
 
