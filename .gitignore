@@ -1,0 +1,85 @@
+# ==========================================
+# SDXL Model & LoRA Quantizer & Rank Resizer
+# .gitignore
+# ==========================================
+
+# --- 設定ファイル (起動時にデフォルト値で自動生成されます) ---
+config.ini
+*.ini
+
+# --- Python 仮想環境 ---
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Python キャッシュ & ビルド成果物 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# --- 一時スクリプト & 作業ディレクトリ (Antigravity Scratch等) ---
+scratch/
+temp/
+tmp/
+*.tmp
+*.temp
+
+# --- 開発ドキュメント & レビュー記録 (リポジトリ非公開) ---
+doc/
+
+# --- ログファイル ---
+log/
+logs/
+*.log
+
+# --- コンパイル済みバイナリ実行ファイル (setup_env.bat で自動ビルド可能) ---
+*.exe
+*.dll
+*.pdb
+
+# --- モデル・重み・画像ファイル (大容量ファイル) ---
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+*.gguf
+
+# --- OS 固有ファイル ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- エディタ / IDE 設定 ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~

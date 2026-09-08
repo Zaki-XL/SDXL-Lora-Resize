@@ -1,0 +1,144 @@
+{
+  "language_name": "English",
+  "main": {
+    "window_title": "SDXL Model & LoRA Quantizer & Rank Resizer",
+    "language_label": "Language:",
+    "drop_hint": "Drag & Drop .safetensors files here\n(Dropping files will reset the current list)",
+    "table": {
+      "col_orig_name": "Original Filename",
+      "col_orig_rank": "Orig Rank",
+      "col_sidecars": "Sidecars",
+      "col_format": "Data Format",
+      "col_out_name": "Output Filename",
+      "col_orig_size": "Orig Size",
+      "col_est_size": "Est Size",
+      "col_reduction": "Reduction",
+      "col_status": "Status"
+    },
+    "buttons": {
+      "add_files": "＋ Select Files...",
+      "remove_selected": "✕ Remove Selected",
+      "clear_files": "Clear All",
+      "start": "🚀 Start Resize & Quantize",
+      "cancel": "■ Cancel",
+      "change_dir": "Browse...",
+      "reset_dir": "Reset"
+    },
+    "labels": {
+      "file_count_format": "Target Files: {count} (Total: {size})",
+      "output_dir": "Output Directory:",
+      "output_dir_same": "(Same as input file directory)",
+      "settings_group": "Resize (SVD) × Quantization Precision Settings",
+      "rank_label": "① SVD Rank Reduction:",
+      "prec_label": "② Quant Precision:",
+      "keep_vae": "Protect VAE (Keep FP16)",
+      "force_overwrite": "Overwrite Existing Files",
+      "inspector_default": "💡 Click a file in the table to view detailed inspection info.",
+      "inspector_removed": "💡 Selected files removed from the target list."
+    },
+    "status": {
+      "waiting": "Ready",
+      "converting": "Converting...",
+      "completed": "Completed (Verified)",
+      "skipped": "Skipped (Exists)",
+      "error": "Error",
+      "corrupt": "Corrupt/Invalid",
+      "cancelled": "Cancelled",
+      "progress_format_file": "File Progress: %v / %m",
+      "progress_format_tensor": "Tensor Progress: %p%",
+      "progress_processing": "Processing: {name}... ({speed:.1f} MB/s)"
+    },
+    "dialogs": {
+      "select_model_title": "Select Model Files",
+      "select_dir_title": "Select Output Directory",
+      "warn_no_files_title": "Warning",
+      "warn_no_files_msg": "No target files selected.",
+      "error_all_invalid_title": "Error",
+      "error_all_invalid_msg": "No valid files to convert.\nAll {count} selected files are corrupt or invalid.",
+      "verify_error_title": "Integrity Verification Error",
+      "verify_error_msg": "Integrity verification failed for model <b>{filename}</b>.\nThe corrupt output file was automatically deleted for safety.\n\n[Error Details]\n{details}\n\nDo you want to continue processing the remaining files, or stop?",
+      "btn_continue": "Continue Next (&C)",
+      "btn_stop": "Stop Processing (&S)"
+    }
+  },
+  "ranks": {
+    "none": {
+      "label": "No Resize (Keep Original Rank)",
+      "desc": "[Keep Original] Maintain the original LoRA's learned rank and expressive nuance (artstyle, pose, composition)."
+    },
+    "128": {
+      "label": "Target Rank 128 (Ultra High Detail)",
+      "desc": "[Maximum Capacity] Best for complex art styles and dynamic compositions with massive detail. (Caution: Large file size)."
+    },
+    "64": {
+      "label": "Target Rank 64 (Standard High-Capacity LoRA)",
+      "desc": "[High Detail & Complex Costumes] Effective for dynamic poses, intricate clothing, and accurate artist style reproduction."
+    },
+    "32": {
+      "label": "Target Rank 32 (Balanced High Quality - Recommended)",
+      "desc": "[Characters & Standard Outfits] Recommended setting for character reproduction, offering the best balance of quality and size reduction."
+    },
+    "16": {
+      "label": "Target Rank 16 (Lightweight & Fast)",
+      "desc": "[Simple Characters & Props] Great for simple poses and single items; optimizes file size for fast generation."
+    },
+    "8": {
+      "label": "Target Rank 8 (Compact - Low VRAM)",
+      "desc": "[Atmosphere & Simple Concepts] Minimal VRAM setting for subtle mood changes or basic concepts."
+    },
+    "4": {
+      "label": "Target Rank 4 (Minimal)",
+      "desc": "[Fine Tuning & Micro Size] Minimalist file size for slight color grading or tiny nuances."
+    }
+  },
+  "precisions": {
+    "keep": {
+      "name": "Keep Original Precision (FP16/BF16)",
+      "desc": "[Full Compatibility] Retains the original model format, ensuring maximum compatibility and zero quality loss.",
+      "target_gpu": "All Environments",
+      "compatibility": "Full Compatibility"
+    },
+    "fp8_e4m3fn": {
+      "name": "[RTX 40xx / 50xx] FP8 (e4m3fn) - High Quality 8-bit Float (~50% smaller)",
+      "desc": "[RTX 40xx/50xx Recommended] High-fidelity 8-bit float format with minimal loss and ~50% size reduction.",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge (Native Support)"
+    },
+    "fp8_e5m2": {
+      "name": "[RTX 40xx / 50xx] FP8 (e5m2) - Wide Dynamic Range 8-bit Float (~50% smaller)",
+      "desc": "[Wide Dynamic Range] 8-bit float with wider exponent range to prevent numeric overflow.",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge Supported"
+    },
+    "int8": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT8 - Universal Integer Quant (~50% smaller)",
+      "desc": "[All RTX Generations] Standard 8-bit integer quantization supported widely across Turing/Ampere/Ada.",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (All RTX)",
+      "compatibility": "PyTorch / bitsandbytes / ComfyUI Supported"
+    },
+    "int4": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT4 / NF4 - 4-bit Quantization (~75% smaller)",
+      "desc": "[Ultra Low VRAM] Reduces file size by ~75% for maximum memory savings.",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (All RTX)",
+      "compatibility": "bitsandbytes / ComfyUI-NF4 Supported"
+    },
+    "nvfp4": {
+      "name": "[RTX 50xx] NVFP4 / FP4 - Blackwell Native 4-bit Float (~75% smaller)",
+      "desc": "[RTX 50xx Optimized] Native 4-bit floating point acceleration for next-gen Blackwell GPUs.",
+      "target_gpu": "RTX 50xx (Blackwell Architecture)",
+      "compatibility": "Next-Gen PyTorch / TensorRT-LLM / ComfyUI"
+    },
+    "fp16": {
+      "name": "[All GPU / CPU] FP16 (Half Precision) - Standard 16-bit (~50% smaller if FP32)",
+      "desc": "[Universal Standard] Standard 16-bit float format compatible across all GPUs and CPUs.",
+      "target_gpu": "All GPUs (RTX / GTX / Radeon / Apple Silicon / CPU)",
+      "compatibility": "Fully Compatible"
+    },
+    "gguf_q4": {
+      "name": "[All GPU / CPU] GGUF Q4_K_M - ComfyUI-GGUF / sd.cpp (~70% smaller)",
+      "desc": "[ComfyUI-GGUF / sd.cpp] High-efficiency format directly readable by GGUF nodes.",
+      "target_gpu": "All GPUs / CPUs",
+      "compatibility": "ComfyUI-GGUF, sd.cpp, llama.cpp"
+    }
+  }
+}

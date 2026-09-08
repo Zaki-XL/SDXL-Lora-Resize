@@ -1,0 +1,144 @@
+{
+  "language_name": "日本語",
+  "main": {
+    "window_title": "SDXL Model & LoRA Quantizer & Rank Resizer",
+    "language_label": "言語 / Language:",
+    "drop_hint": "ここに .safetensors ファイルをドラッグ＆ドロップ\n（ドロップすると一覧が新規更新されます）",
+    "table": {
+      "col_orig_name": "元ファイル名",
+      "col_orig_rank": "元Rank",
+      "col_sidecars": "付属ファイル",
+      "col_format": "元データ形式",
+      "col_out_name": "変換後ファイル名",
+      "col_orig_size": "元サイズ",
+      "col_est_size": "推定後サイズ",
+      "col_reduction": "削減率",
+      "col_status": "ステータス"
+    },
+    "buttons": {
+      "add_files": "＋ ファイル選択...",
+      "remove_selected": "✕ 選択を削除",
+      "clear_files": "一覧をクリア",
+      "start": "🚀 リサイズ & 量子化変換を開始",
+      "cancel": "■ 中止",
+      "change_dir": "変更...",
+      "reset_dir": "元に戻す"
+    },
+    "labels": {
+      "file_count_format": "変換対象: {count} 件 (合計: {size})",
+      "output_dir": "保存先:",
+      "output_dir_same": "（元ファイルと同階層）",
+      "settings_group": "リサイズ (SVD) × 量子化精度 設定",
+      "rank_label": "① SVD Rank削減:",
+      "prec_label": "② 量子化精度:",
+      "keep_vae": "VAEを保護 (FP16維持)",
+      "force_overwrite": "同名ファイルは強制上書き",
+      "inspector_default": "💡 テーブル内のファイルをクリックすると詳細情報が表示されます。",
+      "inspector_removed": "💡 選択したファイルを変換対象から除外しました。"
+    },
+    "status": {
+      "waiting": "待機中",
+      "converting": "変換中...",
+      "completed": "完了 (検証済)",
+      "skipped": "パス (既存)",
+      "error": "エラー",
+      "corrupt": "異常/破損",
+      "cancelled": "中断",
+      "progress_format_file": "ファイル進捗: %v / %m",
+      "progress_format_tensor": "テンソル進捗: %p%",
+      "progress_processing": "処理中: {name}... ({speed:.1f} MB/s)"
+    },
+    "dialogs": {
+      "select_model_title": "モデルファイルを選択",
+      "select_dir_title": "保存先フォルダを選択",
+      "warn_no_files_title": "警告",
+      "warn_no_files_msg": "変換対象のファイルが選択されていません。",
+      "error_all_invalid_title": "エラー",
+      "error_all_invalid_msg": "有効な変換対象ファイルがありません。\n選択された {count} 件のファイルはすべて破損または異常データとして検知されています。",
+      "verify_error_title": "整合性検証エラー",
+      "verify_error_msg": "モデル <b>{filename}</b> の整合性検証でエラーが検出されました。\n破損した出力ファイルは安全のため自動削除されました。\n\n【エラー詳細】\n{details}\n\n残りのファイルの変換を継続しますか？それとも処理を停止しますか？",
+      "btn_continue": "次のファイルを継続 (&C)",
+      "btn_stop": "処理を停止 (&S)"
+    }
+  },
+  "ranks": {
+    "none": {
+      "label": "リサイズなし (元のRankを維持)",
+      "desc": "【現状維持】元のLoRAが持つ学習Rankと表現力（画風・ポーズ・構図等）をそのまま維持したい場合に選択"
+    },
+    "128": {
+      "label": "Target Rank 128 (緻密画風・超大容量)",
+      "desc": "【緻密な画風・極大情報量向け】極めて複雑な画風全体の学習やダイナミックな構図など、膨大な情報量とディテールを極限まで保持したい場合に有効（※サイズ大・過学習に注意）"
+    },
+    "64": {
+      "label": "Target Rank 64 (大容量LoRAの標準化)",
+      "desc": "【複雑なポーズ構図・緻密な画風・複雑な衣装向け】躍動感のあるポーズや複雑な構図、特定のイラストレーターの緻密な画風、複雑な衣装のキャラクターなどを正確に再現したい場合に有効"
+    },
+    "32": {
+      "label": "Target Rank 32 (高精度バランス・推奨)",
+      "desc": "【キャラクター・標準ポーズ構図・衣装向け】特定のキャラクターや衣装、標準的なポーズや日常構図の再現に適しており、表現力とファイルサイズのバランスが最も優れた推奨設定"
+    },
+    "16": {
+      "label": "Target Rank 16 (軽量・高速)",
+      "desc": "【シンプルキャラ・固定ポーズ・小物向け】シンプルな立ちポーズや単一キャラクター、特定アイテムの再現に適しており、ファイルサイズを抑えて軽量・高速化したい場合に有効"
+    },
+    "8": {
+      "label": "Target Rank 8 (極小・省VRAM)",
+      "desc": "【全体の雰囲気・シンプルな物体向け】構図変化を伴わない全体の雰囲気変更や、シンプルな物体・概念の学習に適した極小・省VRAM設定"
+    },
+    "4": {
+      "label": "Target Rank 4 (最小)",
+      "desc": "【ニュアンス微調整・最小容量向け】ポーズや構図の変化を伴わない最小限の色味・概念の微調整や、極限までファイル容量を削りたい場合に有効"
+    }
+  },
+  "precisions": {
+    "keep": {
+      "name": "精度変換なし (元の精度を維持)",
+      "desc": "【完全互換・品質維持】元モデルのデータ形式（FP16/BF16など）を完全に維持し、互換性と画質を保ちます。",
+      "target_gpu": "全環境",
+      "compatibility": "完全互換"
+    },
+    "fp8_e4m3fn": {
+      "name": "[RTX 40xx / 50xx] FP8 (e4m3fn) - 高精度 8bit Float (約50%縮小)",
+      "desc": "【RTX 40xx/50xx推奨・高画質軽量化】画質劣化が極めて少なく、モデルサイズを約50%削減する高品質8bit浮動小数点形式。",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge 標準対応"
+    },
+    "fp8_e5m2": {
+      "name": "[RTX 40xx / 50xx] FP8 (e5m2) - 広ダイナミックレンジ 8bit Float (約50%縮小)",
+      "desc": "【広ダイナミックレンジ】指数部の範囲が広く数値のオーバーフローを防ぐ8bit浮動小数点形式。",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge 対応"
+    },
+    "int8": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT8 - 汎用整数量子化 (約50%縮小)",
+      "desc": "【全世代RTX対応・汎用軽量化】Turing/Ampere/Ada世代に広く対応し、サイズを約50%削減する汎用8bit整数量子化形式。",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (全RTX世代)",
+      "compatibility": "PyTorch / bitsandbytes / ComfyUI 対応"
+    },
+    "int4": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT4 / NF4 - 汎用4bit量子化 (約75%縮小)",
+      "desc": "【低VRAM環境・超軽量化】モデルサイズを約75%削減し、メモリ消費を最小限に抑えたい場合に特化した汎用4bit量子化形式。",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (全RTX世代)",
+      "compatibility": "bitsandbytes / ComfyUI-NF4 対応"
+    },
+    "nvfp4": {
+      "name": "[RTX 50xx] NVFP4 / FP4 - Blackwell ネイティブ4bit Float (約75%縮小)",
+      "desc": "【RTX 50xx最適化・次世代高速化】Blackwell世代のハードウェアアクセラレーションに対応したネイティブ4bit浮動小数点形式。",
+      "target_gpu": "RTX 50xx (Blackwell アーキテクチャ)",
+      "compatibility": "次世代 PyTorch / TensorRT-LLM / ComfyUI 対応予定"
+    },
+    "fp16": {
+      "name": "[全GPU / CPU] FP16 (Half Precision) - 標準16bit (約50%縮小 ※FP32時)",
+      "desc": "【全GPU/CPU互換・標準形式】全環境で完全互換となる標準的な16bit浮動小数点形式（FP32の軽量化等に有効）。",
+      "target_gpu": "全GPU (RTX / GTX / Radeon / Apple Silicon / CPU)",
+      "compatibility": "完全互換"
+    },
+    "gguf_q4": {
+      "name": "[全GPU / CPU] GGUF Q4_K_M - ComfyUI-GGUF / sd.cpp 形式 (約70%縮小)",
+      "desc": "【ComfyUI-GGUF / sd.cpp向け】GGUF対応ノードで直接読み込み可能な高効率量子化形式。",
+      "target_gpu": "全GPU / CPU",
+      "compatibility": "ComfyUI-GGUF, sd.cpp, llama.cpp"
+    }
+  }
+}

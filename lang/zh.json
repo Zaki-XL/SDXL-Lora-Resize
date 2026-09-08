@@ -1,0 +1,144 @@
+{
+  "language_name": "简体中文",
+  "main": {
+    "window_title": "SDXL Model & LoRA Quantizer & Rank Resizer",
+    "language_label": "语言 / Language:",
+    "drop_hint": "将 .safetensors 文件拖放到此处\n（拖放新文件将清空并更新列表）",
+    "table": {
+      "col_orig_name": "原文件名",
+      "col_orig_rank": "原Rank",
+      "col_sidecars": "附属文件",
+      "col_format": "原始格式",
+      "col_out_name": "转换后文件名",
+      "col_orig_size": "原大小",
+      "col_est_size": "预估大小",
+      "col_reduction": "缩减率",
+      "col_status": "状态"
+    },
+    "buttons": {
+      "add_files": "＋ 选择文件...",
+      "remove_selected": "✕ 移除选中项",
+      "clear_files": "清空列表",
+      "start": "🚀 开始调整大小与量化转换",
+      "cancel": "■ 中止",
+      "change_dir": "更改...",
+      "reset_dir": "重置"
+    },
+    "labels": {
+      "file_count_format": "转换目标: {count} 个 (总计: {size})",
+      "output_dir": "保存目录:",
+      "output_dir_same": "（与源文件位于同级目录）",
+      "settings_group": "调整大小 (SVD) × 量化精度 设置",
+      "rank_label": "① SVD Rank 缩减:",
+      "prec_label": "② 量化精度:",
+      "keep_vae": "保护 VAE (保持 FP16)",
+      "force_overwrite": "强制覆盖同名文件",
+      "inspector_default": "💡 点击表格中的文件即可查看详细分析信息。",
+      "inspector_removed": "💡 已从转换目标列表中移除选中文件。"
+    },
+    "status": {
+      "waiting": "就绪",
+      "converting": "转换中...",
+      "completed": "完成 (已校验)",
+      "skipped": "跳过 (已存在)",
+      "error": "错误",
+      "corrupt": "异常/损坏",
+      "cancelled": "已中止",
+      "progress_format_file": "文件进度: %v / %m",
+      "progress_format_tensor": "张量进度: %p%",
+      "progress_processing": "处理中: {name}... ({speed:.1f} MB/s)"
+    },
+    "dialogs": {
+      "select_model_title": "选择模型文件",
+      "select_dir_title": "选择保存目录",
+      "warn_no_files_title": "警告",
+      "warn_no_files_msg": "未选择任何转换目标文件。",
+      "error_all_invalid_title": "错误",
+      "error_all_invalid_msg": "没有有效的可转换文件。\n所选的 {count} 个文件均被检测为损坏或异常数据。",
+      "verify_error_title": "完整性校验错误",
+      "verify_error_msg": "模型 <b>{filename}</b> 的完整性校验未通过。\n为确保安全，已自动删除损坏的输出文件。\n\n【错误详情】\n{details}\n\n是否继续处理其余文件，还是立即停止？",
+      "btn_continue": "继续下一个文件 (&C)",
+      "btn_stop": "停止处理 (&S)"
+    }
+  },
+  "ranks": {
+    "none": {
+      "label": "不调整 (保持原始Rank)",
+      "desc": "【保持现状】保留原LoRA学到的Rank与表现力（画风、姿势、构图等）"
+    },
+    "128": {
+      "label": "目标 Rank 128 (超大容量・极致细节)",
+      "desc": "【极致细节向】适用于极复杂的整体画风或大动态构图，最大化保留细节信息（注意：文件较大）"
+    },
+    "64": {
+      "label": "目标 Rank 64 (大容量LoRA标准规格)",
+      "desc": "【复杂姿势/精致服装】精确还原生动姿势、精细画风及复杂服装角色"
+    },
+    "32": {
+      "label": "目标 Rank 32 (高画质平衡・推荐)",
+      "desc": "【角色与标准构图推荐】兼顾角色特征表现力与文件大小的最佳平衡设置"
+    },
+    "16": {
+      "label": "目标 Rank 16 (轻量・高速)",
+      "desc": "【简单角色与道具】适用于简单立绘或单一物品，显著缩减文件体积并加快生成"
+    },
+    "8": {
+      "label": "目标 Rank 8 (极小・省显存)",
+      "desc": "【整体氛围微调】适用于小幅度画风微调或基础概念，占用显存极低"
+    },
+    "4": {
+      "label": "目标 Rank 4 (极限精简)",
+      "desc": "【极致体积精简】微调色调或基础概念，极致压榨文件体积"
+    }
+  },
+  "precisions": {
+    "keep": {
+      "name": "保持原精度 (FP16/BF16 无损)",
+      "desc": "【完全兼容・品质无损】完全保持原始模型格式，画质与兼容性最高。",
+      "target_gpu": "所有环境",
+      "compatibility": "完全兼容"
+    },
+    "fp8_e4m3fn": {
+      "name": "[RTX 40xx / 50xx] FP8 (e4m3fn) - 高保真 8bit Float (体积减半)",
+      "desc": "[RTX 40/50系推荐] 极低画质损失，模型体积减少约50%的高品质8位浮点格式。",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge 原生支持"
+    },
+    "fp8_e5m2": {
+      "name": "[RTX 40xx / 50xx] FP8 (e5m2) - 宽动态范围 8bit Float (体积减半)",
+      "desc": "【宽动态范围】指数范围更大，防止数值溢出。",
+      "target_gpu": "RTX 40xx (Ada Lovelace), RTX 50xx (Blackwell)",
+      "compatibility": "ComfyUI / SD-WebUI Forge 支持"
+    },
+    "int8": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT8 - 通用整数量化 (体积减半)",
+      "desc": "【全RTX架构支持】广泛支持Turing/Ampere/Ada全代显卡，体积减少约50%。",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (全部 RTX 系列)",
+      "compatibility": "PyTorch / bitsandbytes / ComfyUI 支持"
+    },
+    "int4": {
+      "name": "[RTX 20xx / 30xx / 40xx / 50xx] INT4 / NF4 - 通用4bit量化 (减小约75%)",
+      "desc": "【低显存环境特化】体积减少约75%，极大降低显存占用。",
+      "target_gpu": "RTX 20xx (Turing), RTX 30xx (Ampere), RTX 40xx, RTX 50xx (全部 RTX 系列)",
+      "compatibility": "bitsandbytes / ComfyUI-NF4 支持"
+    },
+    "nvfp4": {
+      "name": "[RTX 50xx] NVFP4 / FP4 - Blackwell 原生4bit Float (减小约75%)",
+      "desc": "【RTX 50系硬件加速】面向次世代Blackwell架构的原生4位浮点加速格式。",
+      "target_gpu": "RTX 50xx (Blackwell 架构)",
+      "compatibility": "次世代 PyTorch / TensorRT-LLM / ComfyUI"
+    },
+    "fp16": {
+      "name": "[全GPU / CPU] FP16 (半精度) - 标准16bit (FP32时减半)",
+      "desc": "【全环境完全兼容】全平台兼容的标准16位浮点格式。",
+      "target_gpu": "所有 GPU (RTX / GTX / Radeon / Apple Silicon / CPU)",
+      "compatibility": "完全兼容"
+    },
+    "gguf_q4": {
+      "name": "[全GPU / CPU] GGUF Q4_K_M - ComfyUI-GGUF / sd.cpp 格式 (~70%缩减)",
+      "desc": "【ComfyUI-GGUF 专用】可被 GGUF 节点直接读取的高效量化格式。",
+      "target_gpu": "所有 GPU / CPU",
+      "compatibility": "ComfyUI-GGUF, sd.cpp, llama.cpp"
+    }
+  }
+}
