@@ -52,7 +52,11 @@ Choose the optimal precision for your GPU architecture and target environment (W
 ### 5. Multilingual Support (i18n: 日本語 / English / 简体中文)
 - Dynamically scans the `lang/` directory on startup.
 - Instantly switch languages via the dropdown selector in the UI without restarting the application.
-- Easily add new languages simply by dropping a JSON file (e.g., `ko.json`) into the `lang/` directory.
+- **How to Add a New Language**:
+  1. Copy `lang/en.json` (or `lang/ja.json`) and rename it to your target language code (e.g., `ko.json` for Korean, `fr.json` for French, `es.json` for Spanish).
+  2. Set `"language_name"` at the top of the JSON to your desired display name (e.g., `"한국어"`), then translate the text values.
+  3. Launch the application—the new language will automatically appear in the language selector dropdown (no recompilation or source code modifications needed!).
+  *(※ If any translation keys are missing, the application will safely display `[MISSING: key_name]` as a fallback without crashing)*
 
 ### 6. Sidecar Images & Metadata Synchronization
 - Automatically copies and renames associated preview images (`.png`, `.jpg`, `.webp`) to match the new output model name.
