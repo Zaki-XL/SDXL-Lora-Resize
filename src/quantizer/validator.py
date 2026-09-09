@@ -74,17 +74,20 @@ def verify_quantized_model(
             orig_dim = meta["dim"]
 
             # Shapeチェック
-            is_lora_pair = any(sub in k for sub in ("lora_down.weight", "lora_up.weight", "lora_A.weight", "lora_B.weight"))
-            if has_svd and is_lora_pair:
+            is_down = any(sub in k for sub in ("lora_down", "lora_A", "lora.down", "hada_w1_b", "hada_w2_b", ".down.weight"))
+            is_up = any(sub in k for sub in ("lora_up", "lora_B", "lora.up", "hada_w1_a", "hada_w2_a", ".up.weight"))
+            is_svd_weight = (is_down or is_up)
+
+            if has_svd and is_svd_weight:
                 # SVDリサイズ対象: 次元数が target_rank 以下になっているか、または元の次元の妥当性を確認
                 if quant_t.dim() != orig_dim:
                     shape_mismatch += 1
                 elif target_r is not None:
                     # down/up の Rank 次元が target_r 以下であることを確認
-                    if "lora_down" in k or "lora_A" in k:
+                    if is_down:
                         if quant_t.size(0) > max(target_r, orig_shape[0]):
                             shape_mismatch += 1
-                    elif "lora_up" in k or "lora_B" in k:
+                    elif is_up:
                         if quant_t.dim() >= 2 and quant_t.size(1) > max(target_r, orig_shape[1]):
                             shape_mismatch += 1
             else:

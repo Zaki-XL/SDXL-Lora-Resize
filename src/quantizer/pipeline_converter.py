@@ -50,6 +50,7 @@ class CombinedPipelineConverter(BaseQuantizer):
                 pairs = find_lora_pairs(state_dict)
                 total_pairs = len(pairs)
                 dev = self.device if self.device.type == "cuda" else torch.device("cpu")
+                processed_alphas = set()
 
                 if log_callback and total_pairs > 0:
                     log_callback(f"[SVD開始] 対象LoRAペア: {total_pairs} 件の分解・特異値削減を計算中...")
@@ -96,10 +97,11 @@ class CombinedPipelineConverter(BaseQuantizer):
 
                             state_dict[down_k] = new_down_t.to(dtype=orig_dtype).cpu()
                             state_dict[up_k] = new_up_t.to(dtype=orig_dtype).cpu()
-                            if alpha_k in state_dict:
+                            if alpha_k in state_dict and alpha_k not in processed_alphas:
                                 orig_alpha = float(state_dict[alpha_k].item())
                                 new_alpha = orig_alpha * (float(k) / max(1.0, float(r)))
                                 state_dict[alpha_k] = torch.tensor(new_alpha, dtype=state_dict[alpha_k].dtype)
+                                processed_alphas.add(alpha_k)
                         except Exception:
                             pass
 
@@ -113,19 +115,22 @@ class CombinedPipelineConverter(BaseQuantizer):
                         pct = ((p_idx + 1) / total_pairs) * 100
                         log_callback(f"[SVD進捗] {p_idx + 1} / {total_pairs} ペア完了 ({pct:.1f}%) ...")
 
-                if log_callback and total_pairs > 0:
-                    log_callback(f"[OK] SVD Rank リサイズ計算完了 (Target Rank: {self.target_rank})")
+                if total_pairs > 0:
+                    if log_callback:
+                        log_callback(f"[OK] SVD Rank リサイズ計算完了 (Target Rank: {self.target_rank})")
 
-                # SVDリサイズに応じたメタデータ (Kohya形式等) の更新
-                out_metadata["ss_network_dim"] = str(self.target_rank)
-                if "ss_network_alpha" in out_metadata:
-                    try:
-                        orig_net_dim = float(orig_metadata.get("ss_network_dim", 128))
-                        orig_net_alpha = float(orig_metadata.get("ss_network_alpha", 1))
-                        new_net_alpha = orig_net_alpha * (float(self.target_rank) / max(1.0, orig_net_dim))
-                        out_metadata["ss_network_alpha"] = f"{new_net_alpha:g}"
-                    except Exception:
-                        pass
+                    # SVDリサイズに応じたメタデータ (Kohya形式等) の更新
+                    out_metadata["ss_network_dim"] = str(self.target_rank)
+                    if "ss_network_alpha" in out_metadata:
+                        try:
+                            orig_net_dim = float(orig_metadata.get("ss_network_dim", 128))
+                            orig_net_alpha = float(orig_metadata.get("ss_network_alpha", 1))
+                            new_net_alpha = orig_net_alpha * (float(self.target_rank) / max(1.0, orig_net_dim))
+                            out_metadata["ss_network_alpha"] = f"{new_net_alpha:g}"
+                        except Exception:
+                            pass
+                elif log_callback:
+                    log_callback("[SVDスキップ] 対象LoRAペアが検出されなかったため（LoHa/LoKr等の特殊LyCORIS、または非LoRA）、SVDリサイズをスキップし元のRank構造を維持しました")
 
             # ---------------- 2. 量子化・精度変換 ----------------
             if log_callback:

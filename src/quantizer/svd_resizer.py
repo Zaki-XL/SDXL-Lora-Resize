@@ -54,8 +54,8 @@ def find_lora_pairs(state_dict: dict) -> list[tuple[str, str, str | None]]:
         ("lora_a.weight", "lora_b.weight", "alpha"),
         ("lora.a.weight", "lora.b.weight", "alpha"),
         (".down.weight", ".up.weight", ".alpha"),
-        ("hada_w1_a", "hada_w1_b", "alpha"),
-        ("hada_w2_a", "hada_w2_b", "alpha"),
+        ("hada_w1_b", "hada_w1_a", "alpha"),
+        ("hada_w2_b", "hada_w2_a", "alpha"),
     ]
     
     for orig_k in state_dict.keys():
@@ -189,19 +189,23 @@ class SVDResizer(BaseQuantizer):
             torch.cuda.empty_cache()
 
         if log_callback:
-            log_callback(f"SVD 圧縮完了: {processed_pairs} 組のLoRAレイヤーを Rank {self.target_rank} にリサイズ")
+            if processed_pairs > 0:
+                log_callback(f"SVD 圧縮完了: {processed_pairs} 組のLoRAレイヤーを Rank {self.target_rank} にリサイズ")
+            else:
+                log_callback(f"SVD 対象の標準LoRAレイヤーが検出されなかったため（LoHa/LoKr等の特殊LyCORIS、または非LoRA）、SVDリサイズをスキップし元のRank構造を維持しました")
             log_callback(f"保存中: {output_path} ...")
 
-        # SVDリサイズに応じたメタデータの更新
-        out_metadata["ss_network_dim"] = str(self.target_rank)
-        if "ss_network_alpha" in out_metadata:
-            try:
-                orig_net_dim = float(orig_metadata.get("ss_network_dim", 128))
-                orig_net_alpha = float(orig_metadata.get("ss_network_alpha", 1))
-                new_net_alpha = orig_net_alpha * (float(self.target_rank) / max(1.0, orig_net_dim))
-                out_metadata["ss_network_alpha"] = f"{new_net_alpha:g}"
-            except Exception:
-                pass
+        # SVDリサイズに応じたメタデータの更新 (実際にLoRAレイヤーをリサイズした場合のみ)
+        if processed_pairs > 0:
+            out_metadata["ss_network_dim"] = str(self.target_rank)
+            if "ss_network_alpha" in out_metadata:
+                try:
+                    orig_net_dim = float(orig_metadata.get("ss_network_dim", 128))
+                    orig_net_alpha = float(orig_metadata.get("ss_network_alpha", 1))
+                    new_net_alpha = orig_net_alpha * (float(self.target_rank) / max(1.0, orig_net_dim))
+                    out_metadata["ss_network_alpha"] = f"{new_net_alpha:g}"
+                except Exception:
+                    pass
 
         out_dir = os.path.dirname(output_path)
         if out_dir:

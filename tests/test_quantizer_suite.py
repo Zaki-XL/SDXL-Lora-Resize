@@ -111,5 +111,80 @@ class TestSDXLQuantizerSuite(unittest.TestCase):
         self.assertEqual(out_meta.get("ss_network_dim"), "64")
         self.assertEqual(out_meta.get("ss_network_alpha"), "0.5")
 
+    def test_lycoris_loha_estimator_and_conversion(self):
+        """LyCORIS (LoHa) の削減率推計が各ランク変更に正しく連動し、SVDリサイズ時も正常に圧縮されることを検証"""
+        loha_dummy_path = os.path.join(self.test_dir, "test_lycoris_loha_r32.safetensors")
+        loha_tensors = {
+            "lora_unet_down_blocks_0_attentions_0_proj_in.hada_w1_a": torch.randn(1280, 32, dtype=torch.float16),
+            "lora_unet_down_blocks_0_attentions_0_proj_in.hada_w1_b": torch.randn(32, 1280, dtype=torch.float16),
+            "lora_unet_down_blocks_0_attentions_0_proj_in.hada_w2_a": torch.randn(1280, 32, dtype=torch.float16),
+            "lora_unet_down_blocks_0_attentions_0_proj_in.hada_w2_b": torch.randn(32, 1280, dtype=torch.float16),
+            "lora_unet_down_blocks_0_attentions_0_proj_in.alpha": torch.tensor(1.0, dtype=torch.float16),
+        }
+        meta_dict = {
+            "ss_network_dim": "32",
+            "ss_network_alpha": "1",
+            "ss_network_module": "lycoris.kohya",
+            "ss_network_args": '{"algo": "loha"}'
+        }
+        save_file(loha_tensors, loha_dummy_path, metadata=meta_dict)
+
+        # 1. 削減率推計の検証 (選択ランクに応じて推定後サイズがリアルタイムに変化すること)
+        # ① リサイズなし (none): 削減率 約0%
+        _, _, red_none = estimate_quantized_size(loha_dummy_path, svd_rank="none", precision_key="keep", keep_vae_fp16=True)
+        self.assertLess(red_none, 3.0)
+
+        # ② 元Rank維持 (32): 削減率 約0%
+        _, _, red_r32 = estimate_quantized_size(loha_dummy_path, svd_rank="32", precision_key="keep", keep_vae_fp16=True)
+        self.assertLess(red_r32, 3.0)
+
+        # ③ Rank 16 (半分に削減): 削減率 約 50%
+        _, _, red_r16 = estimate_quantized_size(loha_dummy_path, svd_rank="16", precision_key="keep", keep_vae_fp16=True)
+        self.assertGreater(red_r16, 45.0)
+        self.assertLess(red_r16, 55.0)
+
+        # ④ Rank 8 (1/4に削減): 削減率 約 75%
+        _, _, red_r8 = estimate_quantized_size(loha_dummy_path, svd_rank="8", precision_key="keep", keep_vae_fp16=True)
+        self.assertGreater(red_r8, 70.0)
+        self.assertLess(red_r8, 80.0)
+
+        # ⑤ 元Rankより大きい Rank 64: 拡大は行わず維持 (削減率 約0%)
+        _, _, red_r64 = estimate_quantized_size(loha_dummy_path, svd_rank="64", precision_key="keep", keep_vae_fp16=True)
+        self.assertLess(red_r64, 3.0)
+
+        # ⑥ Rank 16 × FP8: 約 75% 削減 (Rank 50% × FP8 50% = 25% 残存)
+        _, _, red_r16_fp8 = estimate_quantized_size(loha_dummy_path, svd_rank="16", precision_key="fp8_e4m3fn", keep_vae_fp16=True)
+        self.assertGreater(red_r16_fp8, 70.0)
+        self.assertLess(red_r16_fp8, 80.0)
+
+        # 2. パイプライン変換の検証 (Rank 16 への SVD 圧縮が正しく実行され、Shape と Alpha が更新されること)
+        out_loha_path = os.path.join(self.test_dir, "out_loha_rank16.safetensors")
+        converter = CombinedPipelineConverter(svd_rank="16", precision_key="keep", keep_vae_fp16=True)
+        success = converter.process(loha_dummy_path, out_loha_path)
+        self.assertTrue(success)
+        self.assertTrue(os.path.exists(out_loha_path))
+
+        out_dict = load_file(out_loha_path)
+        w1_a = out_dict["lora_unet_down_blocks_0_attentions_0_proj_in.hada_w1_a"]
+        w1_b = out_dict["lora_unet_down_blocks_0_attentions_0_proj_in.hada_w1_b"]
+        w2_a = out_dict["lora_unet_down_blocks_0_attentions_0_proj_in.hada_w2_a"]
+        w2_b = out_dict["lora_unet_down_blocks_0_attentions_0_proj_in.hada_w2_b"]
+        new_alpha = float(out_dict["lora_unet_down_blocks_0_attentions_0_proj_in.alpha"].item())
+
+        # リサイズ後の Shape 検証: (1280, 16) および (16, 1280)
+        self.assertEqual(tuple(w1_a.shape), (1280, 16))
+        self.assertEqual(tuple(w1_b.shape), (16, 1280))
+        self.assertEqual(tuple(w2_a.shape), (1280, 16))
+        self.assertEqual(tuple(w2_b.shape), (16, 1280))
+
+        # Alpha の比例スケーリング検証: 元 1.0 -> 0.5
+        self.assertAlmostEqual(new_alpha, 0.5, places=4)
+
+        # メタデータの更新確認: ss_network_dim が 16 に更新されていること
+        from src.utils.safetensors_io import read_safetensors_header
+        _, out_meta, _ = read_safetensors_header(out_loha_path)
+        self.assertEqual(out_meta.get("ss_network_dim"), "16")
+        self.assertEqual(out_meta.get("ss_network_alpha"), "0.5")
+
 if __name__ == '__main__':
     unittest.main()

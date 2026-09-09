@@ -38,37 +38,40 @@ def estimate_quantized_size(filepath: str, svd_rank: str, precision_key: str, ke
             elem_target_size = 2 if dtype in ("F16", "BF16") else 4
 
         nl = name.lower()
-        is_down = (
+        # SVD Rank リサイズ対象の判定と元Rankの正確な抽出
+        is_svd_target = False
+        orig_r = 1
+
+        if "hada_w1_a" in nl or "hada_w2_a" in nl:
+            is_svd_target = True
+            orig_r = shape[1] if len(shape) > 1 else (shape[0] if shape else 1)
+        elif "hada_w1_b" in nl or "hada_w2_b" in nl:
+            is_svd_target = True
+            orig_r = shape[0] if shape else 1
+        elif (
             "lora_down" in nl or
             "lora.down" in nl or
             "lora_a" in nl or
             "lora.a" in nl or
-            ".down.weight" in nl or
-            "hada_w1_a" in nl or
-            "hada_w2_a" in nl
-        )
-        is_up = (
+            ".down.weight" in nl
+        ):
+            is_svd_target = True
+            orig_r = shape[0] if shape else 1
+        elif (
             "lora_up" in nl or
             "lora.up" in nl or
             "lora_b" in nl or
             "lora.b" in nl or
-            ".up.weight" in nl or
-            "hada_w1_b" in nl or
-            "hada_w2_b" in nl
-        )
-
-        # LoRA SVD Rank リサイズ計算
-        if has_svd and is_down:
-            orig_r = shape[0] if shape else 1
-            new_r = min(orig_r, target_rank_int)
-            numel = math.prod(shape) if shape else 0
-            scaled_numel = int(numel * (new_r / max(1, orig_r)))
-            estimated_tensor_data_size += int(scaled_numel * elem_target_size)
-        elif has_svd and is_up:
+            ".up.weight" in nl
+        ):
+            is_svd_target = True
             orig_r = shape[1] if len(shape) > 1 else (shape[0] if shape else 1)
+
+        # SVD Rank リサイズ計算 (指定ランクが元ランクより小さい場合に縮小比率を適用)
+        if has_svd and is_svd_target and orig_r > 0:
             new_r = min(orig_r, target_rank_int)
             numel = math.prod(shape) if shape else 0
-            scaled_numel = int(numel * (new_r / max(1, orig_r)))
+            scaled_numel = int(numel * (new_r / orig_r))
             estimated_tensor_data_size += int(scaled_numel * elem_target_size)
         else:
             numel = math.prod(shape) if shape else 0
