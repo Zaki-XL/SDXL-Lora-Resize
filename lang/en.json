@@ -60,6 +60,24 @@
       "verify_error_msg": "Integrity verification failed for model <b>{filename}</b>.\nThe corrupt output file was automatically deleted for safety.\n\n[Error Details]\n{details}\n\nDo you want to continue processing the remaining files, or stop?",
       "btn_continue": "Continue Next (&C)",
       "btn_stop": "Stop Processing (&S)"
+    },
+    "health": {
+      "dialog_title": "LoRA Health & Color Drift Diagnosis",
+      "warn_header": "[⚠️ Warning] Color drift / overtraining risk or anomaly detected",
+      "file_label": "Target File:",
+      "issues_title": "Detected Issues:",
+      "suggestions_title": "Recommended Actions:",
+      "options_title": "Select Action to Apply:",
+      "opt_drop_te": "[Recommended] Drop Text Encoder (Clean to UNet only: prevents color drift, ~30% smaller)",
+      "opt_scale_te": "Attenuate Text Encoder weights (Scale to 0.2 to suppress drift)",
+      "opt_keep": "Keep Original (Do nothing / manual adjustment in WebUI)",
+      "apply_all": "Apply this action to all remaining problem files",
+      "btn_apply": "Apply Action & Add (&A)",
+      "btn_skip": "Skip this file (&S)",
+      "badge_drop_te": "Drop TE",
+      "badge_scale_te": "Scale TE",
+      "badge_overfit": "⚠️ CLIP Overfitted",
+      "badge_corrupt": "⚠️ Corrupt Tensor"
     }
   },
   "ranks": {

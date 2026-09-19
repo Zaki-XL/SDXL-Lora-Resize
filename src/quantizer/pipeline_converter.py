@@ -9,18 +9,21 @@ from ..utils.safetensors_io import is_vae_tensor, read_safetensors_header
 from .svd_resizer import low_rank_svd, find_lora_pairs
 
 class CombinedPipelineConverter(BaseQuantizer):
-    def __init__(self, svd_rank: str, precision_key: str, keep_vae_fp16: bool = True):
+    def __init__(self, svd_rank: str, precision_key: str, keep_vae_fp16: bool = True, te_action: str = "keep", te_scale: float = 0.2):
         super().__init__(keep_vae_fp16=keep_vae_fp16)
         self.svd_rank = svd_rank
         self.has_svd = (svd_rank and svd_rank != "none")
         self.target_rank = int(svd_rank) if self.has_svd else None
         self.precision_key = precision_key
+        self.te_action = te_action
+        self.te_scale = te_scale
         self.last_orig_meta = {}
 
     def process(self, input_path: str, output_path: str, progress_callback=None, log_callback=None) -> bool:
         if log_callback:
             svd_desc = f"Rank {self.target_rank}" if self.has_svd else "Rank維持"
-            log_callback(f"[{self.device_name}] 複合処理開始 (SVD: {svd_desc} × 精度: {self.precision_key}): {os.path.basename(input_path)} ...")
+            te_desc = f" (TE対策: {self.te_action})" if self.te_action != "keep" else ""
+            log_callback(f"[{self.device_name}] 複合処理開始 (SVD: {svd_desc} × 精度: {self.precision_key}{te_desc}): {os.path.basename(input_path)} ...")
 
         state_dict = load_file(input_path)
         total_keys = len(state_dict)
@@ -32,6 +35,8 @@ class CombinedPipelineConverter(BaseQuantizer):
         except Exception:
             orig_metadata = {}
         out_metadata = {str(mk): str(mv) for mk, mv in orig_metadata.items()}
+        if self.te_action == "drop_te":
+            out_metadata["cleaned_by"] = "SDXL Quantizer (Text Encoder Dropped for color-drift prevention)"
 
         # 検証用の元テンソルメタデータ（Shape, dtype, dim）を軽量に記録
         self.last_orig_meta = {
@@ -43,11 +48,18 @@ class CombinedPipelineConverter(BaseQuantizer):
             }
             for k, t in state_dict.items()
         }
+        if self.te_action == "drop_te":
+            self.last_orig_meta = {
+                k: v for k, v in self.last_orig_meta.items()
+                if not any(sub in k.lower() for sub in ("lora_te", "text_model", "conditioner"))
+            }
 
         with torch.inference_mode():
             # ---------------- 1. SVD Rank Resize (LoRAの場合) ----------------
             if self.has_svd:
                 pairs = find_lora_pairs(state_dict)
+                if self.te_action == "drop_te":
+                    pairs = [p for p in pairs if not any(sub in p[0].lower() for sub in ("lora_te", "text_model", "conditioner"))]
                 total_pairs = len(pairs)
                 dev = self.device if self.device.type == "cuda" else torch.device("cpu")
                 processed_alphas = set()
@@ -142,6 +154,16 @@ class CombinedPipelineConverter(BaseQuantizer):
             for idx, (k, tensor) in enumerate(state_dict.items()):
                 if self.is_cancelled:
                     return False
+
+                is_te = any(sub in k.lower() for sub in ("lora_te", "text_model", "conditioner"))
+                if self.te_action == "drop_te" and is_te:
+                    continue
+
+                if self.te_action == "scale_te" and is_te:
+                    if "alpha" in k.lower() and tensor.is_floating_point():
+                        tensor = tensor * self.te_scale
+                    elif ("lora_up" in k.lower() or "hada_w1_a" in k.lower()) and tensor.is_floating_point():
+                        tensor = tensor * self.te_scale
 
                 if self.keep_vae_fp16 and is_vae_tensor(k):
                     if tensor.dtype in (torch.float32, torch.float64):

@@ -63,9 +63,21 @@
 - **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) 深度支持**:
   全面兼容流行扩展 ComfyUI-Lora-Manager，自动修改并同步 `*.metadata.json` 内部的模型文件名、新 Rank、新 Alpha、量化标签及转换历史记录。
 
-### 7. 损坏文件预检与完整性校验
+#### 7. 损坏文件预检与完整性校验
 - 拖放文件时自动预检 Safetensors 文件头，对损坏或 0 字节文件进行红字加粗高亮，并自动从转换列表中剔除。
 - 转换完成后自动校验键名、Shape 形状并检测 NaN/Inf 异常值。若检测到异常，将自动物理删除损坏文件以确保安全。
+
+### 8. LoRA 健康度诊断与色彩崩溃 (CLIP过拟合) 自动预防
+- 拖入文件时自动高速分析内部结构与训练参数，智能检测在 WebUI 中生成时可能引发**“画面极彩化、死白、负片反转、死黑”**等严重色彩崩溃风险及计算异常值。
+- **检测能力**:
+  - 检测 Text Encoder (CLIP-L / CLIP-G) 以过高学习率（如 `2e-4` 及以上）或超大步数（10,000+ 步）过拟合导致的严重权重畸变。
+  - 检测由专用基础模型（如 `NoobAI-XL Epsilon` 或 `V-Prediction`）引发的架构不匹配。
+  - 检测张量中混入的 NaN / Inf 损坏值。
+- **应对方案确认弹窗 (`LoRAHealthDialog`)**:
+  - **【推荐】移除 Text Encoder (`_clean_unet`)**: 彻底移除过拟合的 CLIP 权重，仅保留负责形体与姿态的 UNet（体积减小约 25%〜35%，彻底根除色彩崩溃问题）。
+  - **衰减 Text Encoder 强度 (`_te_scaled`)**: 将 TE 权重缩放至 0.2 倍以抑制色彩失真。
+  - **直接加载保持现状**: 在 WebUI 中手动调整（如 `<lora:名称:1:0>`）。
+  - *注：原始 LoRA 仅以只读方式检查，绝对不会被修改或覆盖。*
 
 ---
 
@@ -81,39 +93,46 @@
 
 ## 🚀 安装与启动
 
-### 第一步: 克隆代码仓库
+### 步骤 1: 克隆仓库
 ```bash
 git clone https://github.com/Zaki-XL/SDXL-Lora-Resize.git
 cd SDXL-Lora-Resize
 ```
 
-### 第二步: 配置运行环境 (仅首次需要)
-双击运行仓库根目录下的 `setup_env.bat`。
-该脚本将自动创建 Python 虚拟环境 (`.venv`)，安装 CUDA 版本的 PyTorch 及依赖项，并自动编译启动器 (`SDXL_Quantizer.exe`)。
+### 步骤 2: 配置环境 (仅首次运行)
+双击项目根目录下的 `setup_env.bat`。  
+程序会自动创建 Python 虚拟环境（`.venv`），安装所需依赖项（PyTorch, PyQt6等），并自动编译单实例启动器（`SDXL_Quantizer.exe`）。
 
 ```bash
 setup_env.bat
 ```
 
-### 第三步: 启动程序
-您可以通过以下任意方式启动：
+### 步骤 3: 启动程序
+您可以通过以下任一方式启动程序：
 
-- 双击 **`SDXL_Quantizer.exe`**（带防重复启动保护的启动器）
+- 双击 **`SDXL_Quantizer.exe`**（带防多开保护的启动器）
 - 或双击 **`run.bat`**
 
 > [!NOTE]
-> 配置文件 `config.ini` 会在首次启动时自动生成。它已被 Git 规则严格忽略，以确保首次运行时的干净配置状态。
+> 配置文件 `config.ini` 会在首次启动时自动生成，已从 Git 仓库中排除以保证初始环境的纯净。
 
 ---
 
 ## 📖 使用指南
 
-```text
-[1. 拖入文件] ──> [2. 设置 SVD Rank] ──> [3. 设置量化精度] ──> [4. 点击开始转换]
+```mermaid
+flowchart LR
+    A["1. 拖入文件"] --> B{"健康度与色彩诊断"}
+    B -- "检测到过拟合/风险" --> C["应对方案弹窗<br>(移除TE/衰减/保持)"]
+    B -- "正常" --> D["2. 设置 SVD Rank"]
+    C --> D
+    D --> E["3. 设置量化精度"]
+    E --> F["4. 点击开始转换"]
 ```
 
 1. **添加文件**:
    - 将需要转换的 `.safetensors` 文件（LoRA 或 Checkpoint）拖入上方虚线框中（或点击“＋ 选择文件...”）。
+   - **健康度与色彩崩溃诊断**: 若检测到 CLIP 过拟合或基础模型不匹配风险，将弹出方案选择对话框。建议选择“移除 Text Encoder”。
 2. **设置 SVD Rank 缩减**:
    - 选择目标 Rank（如 `Target Rank 32`、`Target Rank 16`、`不调整Rank` 等）。
 3. **设置量化精度**:
@@ -133,14 +152,16 @@ setup_env.bat
 SDXL-Lora-Resize/
 ├── .gitignore               # Git 忽略规则 (.venv, config.ini, 模型权重等)
 ├── assets/                  # 图标及图片资源
+├── doc/                     # 质量审计与开发文档
+│   └── reviewer_report.md   # 全面质量与安全审计报告
 ├── lang/                    # 多语言本地化字典 (JSON)
 │   ├── ja.json              # 日语 (日本語)
 │   ├── en.json              # 英语 (English)
 │   └── zh.json              # 简体中文
 ├── src/
 │   ├── main.py              # 程序入口
-│   ├── gui/                 # PyQt6 界面实现与后台工作线程
-│   ├── quantizer/           # SVD 缩减与量化核心计算流
+│   ├── gui/                 # PyQt6 界面实现、后台工作线程与诊断弹窗
+│   ├── quantizer/           # SVD 缩减、量化与健康诊断核心流
 │   └── utils/               # i18n, GPU 检测, Safetensors 读写, 配置管理
 ├── tests/                   # 自动化单元测试套件
 ├── Launcher.cs              # C# 编写的防重复启动器源码
@@ -153,6 +174,11 @@ SDXL-Lora-Resize/
 ├── README_EN.md             # 英语文档 (English)
 └── README_ZH.md             # 简体中文文档 (本文档)
 ```
+
+---
+
+## 📚 相关文档
+- [质量与安全审计报告 (doc/reviewer_report.md)](doc/reviewer_report.md): 架构审查、启动耗时测定、SVD比例缩放验证及 21 项全自动化单元测试通过记录。
 
 ---
 

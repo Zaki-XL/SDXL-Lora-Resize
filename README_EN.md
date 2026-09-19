@@ -63,9 +63,21 @@ Choose the optimal precision for your GPU architecture and target environment (W
 - **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) Support**:
   Full compatibility with the popular ComfyUI-Lora-Manager extension. Automatically modifies and synchronizes model filenames, new Rank, new Alpha, quantization tags, and conversion history inside the corresponding `*.metadata.json` sidecar files.
 
-### 7. File Corruption Detection & Automatic Integrity Verification
+#### 7. File Corruption Detection & Automatic Integrity Verification
 - Automatically inspects safetensors headers during drag & drop, highlighting corrupt or 0-byte files in bold red and safely excluding them from processing.
 - Automatically verifies key count, tensor shapes, and checks for NaN/Inf anomalies immediately after conversion. Corrupt files are automatically deleted for safety.
+
+### 8. LoRA Health Diagnosis & Color Drift (CLIP Overfitting) Prevention
+- Automatically diagnoses internal tensor health and metadata during drag & drop, detecting severe color drift risks (psychedelic oversaturation, blown-out whites, inverted colors, crushed blacks) caused by overfitted text encoders.
+- **Detection Capabilities**:
+  - Detects Text Encoders (CLIP-L / CLIP-G) trained with excessively high learning rates (`2e-4` or higher) or massive steps (10,000+ steps).
+  - Detects architectural mismatches from specialized base models (such as `NoobAI-XL Epsilon` or `V-Prediction`).
+  - Detects corrupt tensors containing NaN or Inf values.
+- **Action Selection Dialog (`LoRAHealthDialog`)**:
+  - **[Recommended] Drop Text Encoder (`_clean_unet`)**: Completely strips overfitted CLIP weights, retaining only the clean UNet weights for morphology and posing (reduces file size by ~25% to 35% and completely resolves color drift).
+  - **Scale Text Encoder (`_te_scaled`)**: Attenuates TE weights by 0.2x to suppress color drift.
+  - **Keep Original**: Retain weights as-is for manual adjustment in WebUI (e.g., `<lora:name:1:0>`).
+  - *Note: Original LoRA files are inspected read-only and will NEVER be modified or overwritten.*
 
 ---
 
@@ -81,39 +93,46 @@ Choose the optimal precision for your GPU architecture and target environment (W
 
 ## 🚀 Installation & Launch
 
-### Step 1: Clone the Repository
+### Step 1: Clone Repository
 ```bash
 git clone https://github.com/Zaki-XL/SDXL-Lora-Resize.git
 cd SDXL-Lora-Resize
 ```
 
 ### Step 2: Environment Setup (First time only)
-Double-click `setup_env.bat` in the project root.
-This script automatically creates a Python virtual environment (`.venv`), installs dependencies (PyTorch with CUDA, PyQt6, etc.), and compiles the launcher executable (`SDXL_Quantizer.exe`).
+Double-click `setup_env.bat` in the repository root.  
+This automatically sets up the Python virtual environment (`.venv`), installs required dependencies (PyTorch, PyQt6, etc.), and builds the single-instance launcher (`SDXL_Quantizer.exe`).
 
 ```bash
 setup_env.bat
 ```
 
-### Step 3: Launch the Application
-You can start the application using either of the following methods:
+### Step 3: Launch Application
+You can start the application using either of the following:
 
-- Double-click **`SDXL_Quantizer.exe`** (Launcher with single-instance mutex protection)
+- Double-click **`SDXL_Quantizer.exe`** (Launcher with single-instance enforcement)
 - Or double-click **`run.bat`**
 
 > [!NOTE]
-> The configuration file `config.ini` is automatically generated on first launch. It is excluded from the Git repository to ensure a clean initial configuration.
+> The configuration file `config.ini` is generated automatically on first run and is excluded from the Git repository.
 
 ---
 
-## 📖 How to Use
+## 📖 Usage Guide
 
-```text
-[1. Drag & Drop Files] ──> [2. Set SVD Rank] ──> [3. Set Precision] ──> [4. Click Start Conversion]
+```mermaid
+flowchart LR
+    A["1. Drag & Drop Files"] --> B{"Health & Drift Diagnosis"}
+    B -- "Overfit / Risk Detected" --> C["Action Dialog<br>(Drop TE / Scale / Keep)"]
+    B -- "Healthy" --> D["2. Set SVD Rank"]
+    C --> D
+    D --> E["3. Set Precision"]
+    E --> F["4. Click Start Conversion"]
 ```
 
 1. **Add Files**:
    - Drag & drop your `.safetensors` files (LoRA or Checkpoint) into the dashed box at the top (or click "＋ Select Files...").
+   - **Health & Color Drift Diagnosis**: If CLIP overfitting or base model mismatches are detected, an interactive dialog appears. Select the recommended mitigation (e.g., Drop Text Encoder).
 2. **SVD Rank Reduction**:
    - Select your target rank (e.g., `Target Rank 32`, `Target Rank 16`, `No Resizing`, etc.).
 3. **Quantization Precision**:
@@ -133,14 +152,16 @@ You can start the application using either of the following methods:
 SDXL-Lora-Resize/
 ├── .gitignore               # Git ignore rules (.venv, config.ini, model weights, etc.)
 ├── assets/                  # Application icons and image resources
+├── doc/                     # Documentation & audit reports
+│   └── reviewer_report.md   # Comprehensive QA & Security audit report
 ├── lang/                    # Multilingual localization dictionaries (JSON)
 │   ├── ja.json              # Japanese (日本語)
 │   ├── en.json              # English
 │   └── zh.json              # Simplified Chinese (简体中文)
 ├── src/
 │   ├── main.py              # Application entry point
-│   ├── gui/                 # PyQt6 GUI implementation & worker thread
-│   ├── quantizer/           # SVD resizing & quantization core pipelines
+│   ├── gui/                 # PyQt6 GUI implementation, worker thread & health dialog
+│   ├── quantizer/           # SVD resizing, quantization & health diagnosis core
 │   └── utils/               # i18n, GPU detection, Safetensors I/O, config manager
 ├── tests/                   # Automated unit test suite
 ├── Launcher.cs              # C# single-instance launcher source code
@@ -153,6 +174,11 @@ SDXL-Lora-Resize/
 ├── README_EN.md             # English Documentation (This file)
 └── README_ZH.md             # Simplified Chinese Documentation (简体中文)
 ```
+
+---
+
+## 📚 Related Documentation
+- [QA & Security Audit Report (doc/reviewer_report.md)](doc/reviewer_report.md): Architectural review, startup benchmark, SVD scaling verification, and full 21 automated unit test passes.
 
 ---
 

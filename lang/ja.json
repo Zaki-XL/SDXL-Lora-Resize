@@ -60,6 +60,24 @@
       "verify_error_msg": "モデル <b>{filename}</b> の整合性検証でエラーが検出されました。\n破損した出力ファイルは安全のため自動削除されました。\n\n【エラー詳細】\n{details}\n\n残りのファイルの変換を継続しますか？それとも処理を停止しますか？",
       "btn_continue": "次のファイルを継続 (&C)",
       "btn_stop": "処理を停止 (&S)"
+    },
+    "health": {
+      "dialog_title": "LoRA 健全性・色破綻リスク診断",
+      "warn_header": "【⚠️ 警告】色破綻・過学習のリスクまたは異常が検出されました",
+      "file_label": "対象ファイル:",
+      "issues_title": "検出された問題点:",
+      "suggestions_title": "推奨される対策:",
+      "options_title": "適用する対策を選択してください:",
+      "opt_drop_te": "【推奨】Text Encoder を除去して UNet のみにクリーンアップ (色破綻防止・約30%軽量化)",
+      "opt_scale_te": "Text Encoder の強度を自動減衰 (0.2 にスケール低減)",
+      "opt_keep": "そのまま読み込む (何もしない / WebUI側で手動調整)",
+      "apply_all": "以降のすべての問題ファイルにも同じ対策を適用する",
+      "btn_apply": "この対策を適用して登録 (&A)",
+      "btn_skip": "このファイルの登録をスキップ (&S)",
+      "badge_drop_te": "TE除去予定",
+      "badge_scale_te": "TE減衰予定",
+      "badge_overfit": "⚠️ CLIP過学習検知",
+      "badge_corrupt": "⚠️ テンソル破損検知"
     }
   },
   "ranks": {

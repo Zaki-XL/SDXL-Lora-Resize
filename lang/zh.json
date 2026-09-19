@@ -60,6 +60,24 @@
       "verify_error_msg": "模型 <b>{filename}</b> 的完整性校验未通过。\n为确保安全，已自动删除损坏的输出文件。\n\n【错误详情】\n{details}\n\n是否继续处理其余文件，还是立即停止？",
       "btn_continue": "继续下一个文件 (&C)",
       "btn_stop": "停止处理 (&S)"
+    },
+    "health": {
+      "dialog_title": "LoRA 健康度与色彩崩溃风险诊断",
+      "warn_header": "【⚠️ 警告】检测到色彩崩溃/过拟合风险或数据异常",
+      "file_label": "目标文件:",
+      "issues_title": "检测到的问题:",
+      "suggestions_title": "建议的解决措施:",
+      "options_title": "请选择应用的应对方案:",
+      "opt_drop_te": "【推荐】移除 Text Encoder (仅保留 UNet: 防止色彩崩溃，减小约30%体积)",
+      "opt_scale_te": "自动衰减 Text Encoder 权重 (缩放至 0.2 以抑制崩溃)",
+      "opt_keep": "直接加载 (不做任何更改 / 在 WebUI 中手动调整)",
+      "apply_all": "对后续所有异常文件应用相同方案",
+      "btn_apply": "应用此方案并添加 (&A)",
+      "btn_skip": "跳过此文件 (&S)",
+      "badge_drop_te": "待移除TE",
+      "badge_scale_te": "待衰减TE",
+      "badge_overfit": "⚠️ 检测到CLIP过拟合",
+      "badge_corrupt": "⚠️ 检测到张量损坏"
     }
   },
   "ranks": {

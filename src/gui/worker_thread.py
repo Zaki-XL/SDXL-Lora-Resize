@@ -12,7 +12,7 @@ class QuantizeWorker(QThread):
     finished_all = pyqtSignal(int, int, int)
     need_error_decision = pyqtSignal(str, str, int)
 
-    def __init__(self, file_list: list[str], svd_rank: str, precision_key: str, output_dir: str, keep_vae_fp16: bool, force_overwrite: bool):
+    def __init__(self, file_list: list[str], svd_rank: str, precision_key: str, output_dir: str, keep_vae_fp16: bool, force_overwrite: bool, te_actions: dict = None):
         super().__init__()
         self.file_list = file_list
         self.svd_rank = svd_rank
@@ -20,6 +20,7 @@ class QuantizeWorker(QThread):
         self.output_dir = output_dir
         self.keep_vae_fp16 = keep_vae_fp16
         self.force_overwrite = force_overwrite
+        self.te_actions = te_actions or {}
         self.is_cancelled = False
         self.current_converter = None
         self.error_decision = None
@@ -47,7 +48,8 @@ class QuantizeWorker(QThread):
                 break
 
             self.file_progress.emit(idx + 1, total_files)
-            target_path = generate_output_path(input_path, self.svd_rank, self.precision_key, self.output_dir)
+            te_action = self.te_actions.get(input_path, "keep")
+            target_path = generate_output_path(input_path, self.svd_rank, self.precision_key, self.output_dir, te_action=te_action)
 
             if os.path.exists(target_path):
                 if not self.force_overwrite:
@@ -63,7 +65,8 @@ class QuantizeWorker(QThread):
             converter = CombinedPipelineConverter(
                 svd_rank=self.svd_rank,
                 precision_key=self.precision_key,
-                keep_vae_fp16=self.keep_vae_fp16
+                keep_vae_fp16=self.keep_vae_fp16,
+                te_action=te_action
             )
             self.current_converter = converter
 

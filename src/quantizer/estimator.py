@@ -4,7 +4,7 @@ import math
 from ..utils.safetensors_io import read_safetensors_header, is_vae_tensor, DTYPE_SIZES
 from ..utils.gpu_info import PRECISION_OPTIONS
 
-def estimate_quantized_size(filepath: str, svd_rank: str, precision_key: str, keep_vae_fp16: bool = True) -> tuple[int, int, float]:
+def estimate_quantized_size(filepath: str, svd_rank: str, precision_key: str, keep_vae_fp16: bool = True, te_action: str = "keep") -> tuple[int, int, float]:
     """
     Returns: (元サイズ bytes, 推定後サイズ bytes, 削減率 %)
     """
@@ -29,6 +29,10 @@ def estimate_quantized_size(filepath: str, svd_rank: str, precision_key: str, ke
     estimated_tensor_data_size = 0
 
     for name, info in tensors.items():
+        nl = name.lower()
+        if te_action == "drop_te" and any(sub in nl for sub in ("lora_te", "text_model", "conditioner")):
+            continue
+
         shape = info.get("shape", [])
         dtype = info.get("dtype", "F16")
         elem_orig_size = DTYPE_SIZES.get(dtype, 2)

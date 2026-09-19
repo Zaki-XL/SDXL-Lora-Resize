@@ -19,6 +19,8 @@ from ..utils.naming import generate_output_path
 from ..utils.safetensors_io import inspect_model_metadata
 from ..utils.sidecar_files import find_associated_files
 from ..quantizer.estimator import estimate_quantized_size
+from ..quantizer.validator import diagnose_lora_health
+from .health_dialog import LoRAHealthDialog
 
 class DropAreaWidget(QFrame):
     def __init__(self, parent_window):
@@ -599,6 +601,9 @@ class MainWindow(QMainWindow):
         keep_vae = self.cb_keep_vae.isChecked()
         out_dir = self.config.get("output_dir", "")
 
+        batch_te_action = None
+        has_multiple = len(filepaths) > 1
+
         for fp in filepaths:
             if fp in [item["orig_path"] for item in self.file_data]:
                 continue
@@ -606,15 +611,45 @@ class MainWindow(QMainWindow):
             is_valid = meta.get("is_valid", True)
             err_msg = meta.get("error_msg", "")
 
+            # 健全性・色破綻診断 (NaN/Inf破損, CLIP過学習検知)
+            health = diagnose_lora_health(fp)
+            te_action = "keep"
+
+            if health.get("has_issues") or health.get("has_clip_overfit"):
+                if batch_te_action is not None:
+                    if batch_te_action == "skip":
+                        self.log(f"[スキップ] ユーザーの一括選択によりスキップ: {os.path.basename(fp)}")
+                        continue
+                    te_action = batch_te_action
+                else:
+                    # 確認・選択ダイアログを表示
+                    dialog = LoRAHealthDialog(self, fp, health, has_multiple=has_multiple)
+                    if dialog.exec() == LoRAHealthDialog.DialogCode.Accepted:
+                        chosen_action, apply_all = dialog.get_result()
+                        te_action = chosen_action
+                        if apply_all:
+                            batch_te_action = chosen_action
+                    else:
+                        # スキップ選択またはキャンセル
+                        chosen_action, apply_all = dialog.get_result()
+                        if apply_all:
+                            batch_te_action = "skip"
+                        self.log(f"[スキップ] 登録をスキップしました: {os.path.basename(fp)}")
+                        continue
+
             # 異常検知時に画面下のログに出力
-            if not is_valid:
+            if not is_valid or health.get("is_corrupt"):
                 fn = os.path.basename(fp)
-                self.log(f"[警告/異常検知] {fn}: {err_msg}")
+                detail = err_msg or (", ".join(health.get("issues", [])))
+                self.log(f"[警告/異常検知] {fn}: {detail}")
+            elif te_action != "keep":
+                fn = os.path.basename(fp)
+                self.log(f"[対策適用] {fn}: 対策={te_action} を設定しました")
 
             sidecars = find_associated_files(fp)
-            out_fp = generate_output_path(fp, svd_rank, prec_key, out_dir)
-            orig, est, _ = estimate_quantized_size(fp, svd_rank, prec_key, keep_vae)
-            status_key = "corrupt" if not is_valid else "waiting"
+            out_fp = generate_output_path(fp, svd_rank, prec_key, out_dir, te_action=te_action)
+            orig, est, _ = estimate_quantized_size(fp, svd_rank, prec_key, keep_vae, te_action=te_action)
+            status_key = "corrupt" if (not is_valid or health.get("is_corrupt")) else "waiting"
             self.file_data.append({
                 "orig_path": fp,
                 "out_path": out_fp,
@@ -623,8 +658,10 @@ class MainWindow(QMainWindow):
                 "status_key": status_key,
                 "status": t(f"main.status.{status_key}"),
                 "meta": meta,
+                "health": health,
+                "te_action": te_action,
                 "sidecars": sidecars,
-                "is_error": not is_valid
+                "is_error": not is_valid or health.get("is_corrupt", False)
             })
 
         self.refresh_table()
@@ -702,8 +739,9 @@ class MainWindow(QMainWindow):
         out_dir = self.config.get("output_dir", "")
 
         for item in self.file_data:
-            item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir)
-            _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae)
+            te_act = item.get("te_action", "keep")
+            item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=te_act)
+            _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae, te_action=te_act)
             item["est_size"] = est
         self.refresh_table()
 
@@ -745,10 +783,21 @@ class MainWindow(QMainWindow):
 
             # 列1: 判定形式
             model_type_str = item["meta"].get("model_type", "不明")
+            te_action = item.get("te_action", "keep")
+            if te_action == "drop_te":
+                model_type_str += f" [{t('main.health.badge_drop_te')}]"
+            elif te_action == "scale_te":
+                model_type_str += f" [{t('main.health.badge_scale_te')}]"
+
             item_type = QTableWidgetItem(model_type_str)
             item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if is_error:
                 item_type.setForeground(QColor("#dc2626"))
+            elif te_action == "drop_te":
+                item_type.setForeground(QColor("#059669")) # 緑色でクリーンアップ表示
+                font_type = item_type.font()
+                font_type.setBold(True)
+                item_type.setFont(font_type)
             elif "LyCORIS" in model_type_str:
                 item_type.setForeground(QColor("#7c3aed"))
                 font_type = item_type.font()
@@ -759,11 +808,18 @@ class MainWindow(QMainWindow):
                 font_type = item_type.font()
                 font_type.setBold(True)
                 item_type.setFont(font_type)
+
+            health = item.get("health", {})
+            issues_tip = ""
+            if health.get("issues"):
+                issues_tip = f"\n\n【{t('main.health.issues_title')}】\n" + "\n".join(f"• {i}" for i in health["issues"])
+
             item_type.setToolTip(
                 f"【判定形式】 {model_type_str}\n"
                 f"元Rank: {item['meta'].get('orig_rank_str')}\n"
                 f"主要精度: {item['meta'].get('primary_dtype')}\n"
                 f"総パラメータ数: {item['meta'].get('total_params_str')}"
+                f"{issues_tip}"
             )
 
             # 列2: 元Rank
@@ -911,7 +967,8 @@ class MainWindow(QMainWindow):
         self.bar_file.setValue(0)
 
         from .worker_thread import QuantizeWorker
-        self.worker = QuantizeWorker(file_list, svd_rank, prec_key, out_dir, keep_vae, force_overwrite)
+        te_actions = {item["orig_path"]: item.get("te_action", "keep") for item in valid_items}
+        self.worker = QuantizeWorker(file_list, svd_rank, prec_key, out_dir, keep_vae, force_overwrite, te_actions=te_actions)
         self.worker.file_progress.connect(self.on_file_progress)
         self.worker.tensor_progress.connect(self.on_tensor_progress)
         self.worker.log_message.connect(self.log)
