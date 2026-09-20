@@ -36,6 +36,7 @@
       "force_overwrite": "强制覆盖同名文件",
       "drop_te": "移除 Text Encoder (仅保留 UNet)",
       "drop_te_tooltip": "完全移除 Text Encoder (CLIP) 张量以消除过拟合/画面崩坏，并缩减约 30-40% 尺寸。",
+      "drop_te_partial_tooltip": "部分文件 ({count}/{total}) 已个别配置移除 Text Encoder。点击可一键应用至全部文件。",
       "train_info_label": "🎯 训练设置:",
       "inspector_default": "💡 点击表格中的文件即可查看详细分析信息。",
       "inspector_removed": "💡 已从转换目标列表中移除选中文件。"

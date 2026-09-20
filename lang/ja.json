@@ -36,6 +36,7 @@
       "force_overwrite": "同名ファイルは強制上書き",
       "drop_te": "Text Encoder を除去 (UNet のみにクリーンアップ)",
       "drop_te_tooltip": "Text Encoder (CLIP) を除去し UNet のみにクリーンアップします。過学習・構図破綻・色崩れを防止し、ファイルサイズを約30〜40%大幅削減します。",
+      "drop_te_partial_tooltip": "一部のファイル ({count}/{total} 件) で個別に対策が設定されています。クリックすると全ファイルに一括適用できます。",
       "train_info_label": "🎯 学習設定:",
       "inspector_default": "💡 テーブル内のファイルをクリックすると詳細情報が表示されます。",
       "inspector_removed": "💡 選択したファイルを変換対象から除外しました。"

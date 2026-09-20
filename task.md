@@ -35,5 +35,9 @@
 - [x] `lang/*.json` (ja, en, zh): GUI常設TE除去オプション用テキスト追加
 - [x] `src/gui/main_window.py`: 設定パネルに「Text Encoder を除去 (UNet のみにクリーンアップ)」チェックボックスを追加、動的推定再計算連動
 - [x] `src/gui/main_window.py` & `src/gui/health_dialog.py`: 学習画像枚数、繰り返し回数 (n_repeats)、学習Rank、ステップ数のGUI表示対応
-- [x] テスト・検証（実ファイル `double_vaginal.safetensors` での診断テスト & テストスイート全17件PASS）
-- [ ] ドキュメント更新 (`doc/reviewer_report.md`, `README.md`) & Git Commit/Push
+### 6. 整合性同期フェーズ: 案B (Tristate/PartiallyChecked 連動)
+- [x] `lang/*.json` (ja, en, zh): 一部適用時ツールチップ用テキスト追加
+- [x] `src/gui/main_window.py`: `cb_drop_te` を3状態（Tristate）化し、ファイル個別状態（全適用・一部適用・なし）と自動同期
+- [x] `src/gui/main_window.py`: ユーザー操作時の一括適用・一括解除ロジック実装
+- [x] テスト・検証（単体テスト追加 & テストスイート全17件PASS）
+- [ ] ドキュメント更新 & Git Commit/Push

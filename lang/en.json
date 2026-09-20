@@ -36,6 +36,7 @@
       "force_overwrite": "Overwrite Existing Files",
       "drop_te": "Drop Text Encoder (UNet Only)",
       "drop_te_tooltip": "Drop all Text Encoder (CLIP) tensors to clean overfit/color blowout and reduce size by ~30-40%.",
+      "drop_te_partial_tooltip": "Text Encoder removal is configured for some files ({count}/{total}). Click to apply to all files.",
       "train_info_label": "🎯 Training Config:",
       "inspector_default": "💡 Click a file in the table to view detailed inspection info.",
       "inspector_removed": "💡 Selected files removed from the target list."

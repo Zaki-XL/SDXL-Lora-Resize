@@ -348,6 +348,7 @@ class MainWindow(QMainWindow):
         opt_layout.addWidget(self.cb_force_overwrite)
 
         self.cb_drop_te = QCheckBox(t("main.labels.drop_te"))
+        self.cb_drop_te.setTristate(True)
         self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
         self.cb_drop_te.stateChanged.connect(self.on_drop_te_option_changed)
         opt_layout.addWidget(self.cb_drop_te)
@@ -538,7 +539,7 @@ class MainWindow(QMainWindow):
         self.cb_keep_vae.setText(t("main.labels.keep_vae"))
         self.cb_force_overwrite.setText(t("main.labels.force_overwrite"))
         self.cb_drop_te.setText(t("main.labels.drop_te"))
-        self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+        self.sync_drop_te_checkbox_state()
         self.out_label.setText(t("main.labels.output_dir"))
         if not self.config.get("output_dir", ""):
             self.edit_output_dir.setText(t("main.labels.output_dir_same"))
@@ -677,6 +678,7 @@ class MainWindow(QMainWindow):
             })
 
         self.refresh_table()
+        self.sync_drop_te_checkbox_state()
 
     def remove_selected_files(self):
         """1. 選択行のファイルを一覧から削除"""
@@ -689,6 +691,7 @@ class MainWindow(QMainWindow):
                 del self.file_data[row]
 
         self.refresh_table()
+        self.sync_drop_te_checkbox_state()
         self.lbl_inspector.setText(t("main.labels.inspector_removed"))
 
     def reset_progress_bars(self):
@@ -704,6 +707,7 @@ class MainWindow(QMainWindow):
         self.lbl_inspector.setText(t("main.labels.inspector_default"))
         self.reset_progress_bars()
         self.refresh_table()
+        self.sync_drop_te_checkbox_state()
 
     def on_options_changed(self):
         svd_rank = self.combo_rank.currentData()
@@ -744,26 +748,75 @@ class MainWindow(QMainWindow):
         if not self.loading_settings:
             self.config.set("force_overwrite", str(self.cb_force_overwrite.isChecked()).lower())
 
-    def on_drop_te_option_changed(self):
-        if not self.loading_settings:
-            self.config.set("drop_te", str(self.cb_drop_te.isChecked()).lower())
-        self.recalculate_estimates()
+    def on_drop_te_option_changed(self, state: int):
+        if self.loading_settings:
+            return
+
+        # ユーザーがクリックした際、PartiallyChecked (一部適用) の状態からは直感的に Checked (全件適用) に遷移
+        if state == Qt.CheckState.PartiallyChecked.value:
+            self.cb_drop_te.blockSignals(True)
+            self.cb_drop_te.setCheckState(Qt.CheckState.Checked)
+            self.cb_drop_te.blockSignals(False)
+            state = Qt.CheckState.Checked.value
+
+        is_checked = (state == Qt.CheckState.Checked.value)
+        self.config.set("drop_te", str(is_checked).lower())
+
+        # ユーザーによる明示的な一括指定: 全ファイルの te_action を統一
+        new_action = "drop_te" if is_checked else "keep"
+        svd_rank = self.combo_rank.currentData()
+        prec_key = self.combo_precision.currentData()
+        keep_vae = self.cb_keep_vae.isChecked()
+        out_dir = self.config.get("output_dir", "")
+
+        for item in self.file_data:
+            item["te_action"] = new_action
+            item["te_action_manual"] = True
+            item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=new_action)
+            _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae, te_action=new_action)
+            item["est_size"] = est
+
+        self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+        self.refresh_table()
+
+    def sync_drop_te_checkbox_state(self):
+        """登録ファイル群の te_action 状態から cb_drop_te のチェック状態 (Checked / PartiallyChecked / Unchecked) を同期"""
+        valid_items = [item for item in self.file_data if item.get("meta", {}).get("is_valid", True)]
+        if not valid_items:
+            self.cb_drop_te.blockSignals(True)
+            self.cb_drop_te.setCheckState(Qt.CheckState.Checked if self.config.getboolean("drop_te", False) else Qt.CheckState.Unchecked)
+            self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+            self.cb_drop_te.blockSignals(False)
+            return
+
+        drop_count = sum(1 for item in valid_items if item.get("te_action") == "drop_te")
+        total_count = len(valid_items)
+
+        self.cb_drop_te.blockSignals(True)
+        if drop_count == total_count:
+            self.cb_drop_te.setCheckState(Qt.CheckState.Checked)
+            self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+        elif drop_count > 0:
+            self.cb_drop_te.setCheckState(Qt.CheckState.PartiallyChecked)
+            self.cb_drop_te.setToolTip(t("main.labels.drop_te_partial_tooltip", count=drop_count, total=total_count))
+        else:
+            self.cb_drop_te.setCheckState(Qt.CheckState.Unchecked)
+            self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+        self.cb_drop_te.blockSignals(False)
 
     def recalculate_estimates(self):
         svd_rank = self.combo_rank.currentData()
         prec_key = self.combo_precision.currentData()
         keep_vae = self.cb_keep_vae.isChecked()
         out_dir = self.config.get("output_dir", "")
-        global_drop_te = self.cb_drop_te.isChecked()
 
         for item in self.file_data:
-            if not item.get("te_action_manual", False):
-                item["te_action"] = "drop_te" if global_drop_te else "keep"
             te_act = item.get("te_action", "keep")
             item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=te_act)
             _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae, te_action=te_act)
             item["est_size"] = est
         self.refresh_table()
+        self.sync_drop_te_checkbox_state()
 
     def refresh_table(self):
         self.table.setRowCount(len(self.file_data))
@@ -856,7 +909,7 @@ class MainWindow(QMainWindow):
                 item_rank.setToolTip(f"【🎯 学習設定】 {item['meta']['train_info_str']}")
 
             # 列3: 付属ファイル
-            sidecar_str = item["sidecars"].get("display_str", "-")
+            sidecar_str = item.get("sidecars", {}).get("display_str", "-")
             item_sidecar = QTableWidgetItem(sidecar_str)
             item_sidecar.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if sidecar_str != "-":
