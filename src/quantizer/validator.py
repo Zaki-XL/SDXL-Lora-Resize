@@ -1,5 +1,6 @@
 """変換後モデルの整合性・健全性検証モジュール"""
 import os
+import json
 import torch
 from safetensors.torch import load_file
 from ..utils.safetensors_io import is_vae_tensor
@@ -203,8 +204,48 @@ def diagnose_lora_health(filepath: str) -> dict:
         except Exception:
             pass
 
+    # データセット情報の解析 (画像枚数・リピート数・Rank)
+    img_count = 0
+    max_repeats = 0
+    network_dim = 0
+    if "ss_network_dim" in metadata:
+        try:
+            network_dim = int(metadata["ss_network_dim"])
+        except Exception:
+            pass
+
+    if "ss_num_train_images" in metadata:
+        try:
+            img_count = int(metadata["ss_num_train_images"])
+        except Exception:
+            pass
+
+    if "ss_dataset_dirs" in metadata:
+        try:
+            ds_info = json.loads(metadata["ss_dataset_dirs"])
+            if isinstance(ds_info, dict):
+                cur_img_sum = 0
+                cur_max_rep = 0
+                for _, d_val in ds_info.items():
+                    if isinstance(d_val, dict):
+                        n_rep = int(d_val.get("n_repeats", 0))
+                        c_img = int(d_val.get("img_count", 0))
+                        if n_rep > cur_max_rep:
+                            cur_max_rep = n_rep
+                        cur_img_sum += c_img
+                if cur_img_sum > 0:
+                    img_count = cur_img_sum
+                if cur_max_rep > 0:
+                    max_repeats = cur_max_rep
+        except Exception:
+            pass
+
     result["base_model"] = base_model
     result["prediction_type"] = pred_type
+    result["img_count"] = img_count
+    result["max_repeats"] = max_repeats
+    result["network_dim"] = network_dim
+    result["steps"] = steps
 
     # 2. 実データの高速健全性チェック (NaN/Inf および TE重み最大値)
     nan_found = False
@@ -254,7 +295,7 @@ def diagnose_lora_health(filepath: str) -> dict:
         result["issues"].append("テンソル内に無限大 (Inf) が検出されました。")
         result["suggested_action"] = "skip"
 
-    # 3. CLIP (Text Encoder) 過学習・色破綻リスク判定
+    # 3. CLIP (Text Encoder) 過学習・色破綻・過剰学習リスク判定
     clip_overfit_reasons = []
     if result["te_count"] > 0:
         # 判定条件1: TE学習率が 1e-4 以上かつ UNet比 80% 以上
@@ -272,6 +313,26 @@ def diagnose_lora_health(filepath: str) -> dict:
         if steps >= 10000 and (te_lr is None or te_lr >= 5e-5):
             clip_overfit_reasons.append(f"大量ステップ ({steps:,} steps) の学習により CLIP 空間が歪曲しているリスクがあります。")
 
+        # 判定条件4: 少数画像に対する過剰リピート・過大ステップ比率（丸暗記・構図破綻リスク）
+        if img_count > 0:
+            step_per_img = (steps / img_count) if steps > 0 else 0
+            if img_count <= 250 and (max_repeats >= 30 or step_per_img >= 30):
+                rep_str = f"リピート数 {max_repeats}回" if max_repeats > 0 else f"1枚あたり {step_per_img:.1f} steps"
+                clip_overfit_reasons.append(
+                    f"少数画像 ({img_count}枚) に対する過剰な繰り返し学習 ({rep_str}, 計 {steps:,} steps) により、深刻な過学習・ポーズ/構図破綻のリスクがあります。"
+                )
+            if img_count <= 200 and network_dim >= 64:
+                clip_overfit_reasons.append(
+                    f"少数画像 ({img_count}枚) に対して Rank次元 ({network_dim}) が過大であり、過学習を著しく助長しています。"
+                )
+
+        # 判定条件5: TE局所重み突出 (UNetとのアンバランス)
+        if max_te_abs >= 0.15 and max_unet_abs > 0 and (max_te_abs >= max_unet_abs * 2.0):
+            if not any("重み変化量" in r for r in clip_overfit_reasons):
+                clip_overfit_reasons.append(
+                    f"Text Encoder の重み変化量 (最大: {max_te_abs:.4f}) が UNet (最大: {max_unet_abs:.4f}) の2倍以上に突出しており、プロンプト解釈の暴走リスクがあります。"
+                )
+
     # 特殊ベースモデルの判定
     base_lower = base_model.lower()
     if "noobai" in base_lower and "epsilon" in (pred_type.lower() + base_lower):
@@ -283,8 +344,10 @@ def diagnose_lora_health(filepath: str) -> dict:
         if result["risk_level"] != "danger":
             result["risk_level"] = "warning"
         result["issues"].extend(clip_overfit_reasons)
-        result["suggestions"].append("Text Encoder を除去して UNet のみにクリーンアップすることで色破綻を防止できます（推奨）。")
-        result["suggestions"].append("Text Encoder の強度を 0.2 などに減衰させることで色調の崩壊を抑制できます。")
+        result["suggestions"].append("Text Encoder を除去して UNet のみにクリーンアップすることで色破綻や過剰な歪みを防止できます（推奨）。")
+        result["suggestions"].append("Text Encoder の強度を 0.2 などに減衰させることで色調・構図の崩壊を抑制できます。")
+        if network_dim >= 64:
+            result["suggestions"].append(f"Rank リサイズで Rank 32〜64 程度に圧縮することで、過学習成分を削ぎ落とせます。")
         result["suggested_action"] = "drop_te"
 
     return result

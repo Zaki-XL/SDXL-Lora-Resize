@@ -34,6 +34,9 @@
       "prec_label": "② Quant Precision:",
       "keep_vae": "Protect VAE (Keep FP16)",
       "force_overwrite": "Overwrite Existing Files",
+      "drop_te": "Drop Text Encoder (UNet Only)",
+      "drop_te_tooltip": "Drop all Text Encoder (CLIP) tensors to clean overfit/color blowout and reduce size by ~30-40%.",
+      "train_info_label": "🎯 Training Config:",
       "inspector_default": "💡 Click a file in the table to view detailed inspection info.",
       "inspector_removed": "💡 Selected files removed from the target list."
     },

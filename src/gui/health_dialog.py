@@ -55,6 +55,23 @@ class LoRAHealthDialog(QDialog):
         lbl_file = QLabel(f"{t('main.health.file_label')} <b>{fn}</b>")
         lbl_file.setStyleSheet(f"font-size: 13px; color: {text_color}; border: none;")
         header_layout.addWidget(lbl_file)
+
+        # 学習パラメータ (画像枚数・リピート回数・Rank・ステップ数) の表示
+        train_details = []
+        if self.health.get("img_count", 0) > 0:
+            train_details.append(f"学習画像枚数: <b>{self.health['img_count']} 枚</b>")
+        if self.health.get("max_repeats", 0) > 0:
+            train_details.append(f"繰り返し回数 (n_repeats): <b>{self.health['max_repeats']} 回</b>")
+        if self.health.get("network_dim", 0) > 0:
+            train_details.append(f"学習Rank: <b>{self.health['network_dim']}</b>")
+        if self.health.get("steps", 0) > 0:
+            train_details.append(f"総ステップ: <b>{self.health['steps']:,} steps</b>")
+
+        if train_details:
+            lbl_train = QLabel(" | ".join(train_details))
+            lbl_train.setStyleSheet(f"font-size: 12px; color: {text_color}; font-weight: 500; border: none; margin-top: 3px;")
+            header_layout.addWidget(lbl_train)
+
         main_layout.addWidget(header_frame)
 
         # 2. 検出された問題点一覧

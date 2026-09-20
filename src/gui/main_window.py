@@ -347,6 +347,11 @@ class MainWindow(QMainWindow):
         self.cb_force_overwrite.stateChanged.connect(self.on_force_overwrite_changed)
         opt_layout.addWidget(self.cb_force_overwrite)
 
+        self.cb_drop_te = QCheckBox(t("main.labels.drop_te"))
+        self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
+        self.cb_drop_te.stateChanged.connect(self.on_drop_te_option_changed)
+        opt_layout.addWidget(self.cb_drop_te)
+
         opt_layout.addStretch()
 
         self.out_label = QLabel(t("main.labels.output_dir"))
@@ -484,6 +489,7 @@ class MainWindow(QMainWindow):
 
         self.cb_keep_vae.setChecked(self.config.getboolean("keep_vae_fp16", True))
         self.cb_force_overwrite.setChecked(self.config.getboolean("force_overwrite", False))
+        self.cb_drop_te.setChecked(self.config.getboolean("drop_te", False))
 
         saved_out = self.config.get("output_dir", "")
         if saved_out and os.path.isdir(saved_out):
@@ -531,6 +537,8 @@ class MainWindow(QMainWindow):
         self.prec_label.setText(t("main.labels.prec_label"))
         self.cb_keep_vae.setText(t("main.labels.keep_vae"))
         self.cb_force_overwrite.setText(t("main.labels.force_overwrite"))
+        self.cb_drop_te.setText(t("main.labels.drop_te"))
+        self.cb_drop_te.setToolTip(t("main.labels.drop_te_tooltip"))
         self.out_label.setText(t("main.labels.output_dir"))
         if not self.config.get("output_dir", ""):
             self.edit_output_dir.setText(t("main.labels.output_dir_same"))
@@ -613,7 +621,8 @@ class MainWindow(QMainWindow):
 
             # 健全性・色破綻診断 (NaN/Inf破損, CLIP過学習検知)
             health = diagnose_lora_health(fp)
-            te_action = "keep"
+            te_action = "drop_te" if self.cb_drop_te.isChecked() else "keep"
+            is_manual = False
 
             if health.get("has_issues") or health.get("has_clip_overfit"):
                 if batch_te_action is not None:
@@ -621,12 +630,14 @@ class MainWindow(QMainWindow):
                         self.log(f"[スキップ] ユーザーの一括選択によりスキップ: {os.path.basename(fp)}")
                         continue
                     te_action = batch_te_action
+                    is_manual = True
                 else:
                     # 確認・選択ダイアログを表示
                     dialog = LoRAHealthDialog(self, fp, health, has_multiple=has_multiple)
                     if dialog.exec() == LoRAHealthDialog.DialogCode.Accepted:
                         chosen_action, apply_all = dialog.get_result()
                         te_action = chosen_action
+                        is_manual = True
                         if apply_all:
                             batch_te_action = chosen_action
                     else:
@@ -660,6 +671,7 @@ class MainWindow(QMainWindow):
                 "meta": meta,
                 "health": health,
                 "te_action": te_action,
+                "te_action_manual": is_manual,
                 "sidecars": sidecars,
                 "is_error": not is_valid or health.get("is_corrupt", False)
             })
@@ -732,13 +744,21 @@ class MainWindow(QMainWindow):
         if not self.loading_settings:
             self.config.set("force_overwrite", str(self.cb_force_overwrite.isChecked()).lower())
 
+    def on_drop_te_option_changed(self):
+        if not self.loading_settings:
+            self.config.set("drop_te", str(self.cb_drop_te.isChecked()).lower())
+        self.recalculate_estimates()
+
     def recalculate_estimates(self):
         svd_rank = self.combo_rank.currentData()
         prec_key = self.combo_precision.currentData()
         keep_vae = self.cb_keep_vae.isChecked()
         out_dir = self.config.get("output_dir", "")
+        global_drop_te = self.cb_drop_te.isChecked()
 
         for item in self.file_data:
+            if not item.get("te_action_manual", False):
+                item["te_action"] = "drop_te" if global_drop_te else "keep"
             te_act = item.get("te_action", "keep")
             item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=te_act)
             _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae, te_action=te_act)
@@ -814,11 +834,16 @@ class MainWindow(QMainWindow):
             if health.get("issues"):
                 issues_tip = f"\n\n【{t('main.health.issues_title')}】\n" + "\n".join(f"• {i}" for i in health["issues"])
 
+            train_tip = ""
+            if item["meta"].get("train_info_str"):
+                train_tip = f"\n\n【🎯 学習設定】\n• {item['meta']['train_info_str']}"
+
             item_type.setToolTip(
                 f"【判定形式】 {model_type_str}\n"
                 f"元Rank: {item['meta'].get('orig_rank_str')}\n"
                 f"主要精度: {item['meta'].get('primary_dtype')}\n"
                 f"総パラメータ数: {item['meta'].get('total_params_str')}"
+                f"{train_tip}"
                 f"{issues_tip}"
             )
 
@@ -827,6 +852,8 @@ class MainWindow(QMainWindow):
             item_rank.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if is_error:
                 item_rank.setForeground(QColor("#dc2626"))
+            elif item["meta"].get("train_info_str"):
+                item_rank.setToolTip(f"【🎯 学習設定】 {item['meta']['train_info_str']}")
 
             # 列3: 付属ファイル
             sidecar_str = item["sidecars"].get("display_str", "-")
@@ -922,12 +949,27 @@ class MainWindow(QMainWindow):
                     f"<b>{os.path.basename(item['orig_path'])}</b>: <span style='color:#b91c1c;'>{err_text}</span>"
                 )
             else:
+                train_parts = []
+                if meta.get("train_img_count"):
+                    train_parts.append(f"学習画像枚数: <b>{meta['train_img_count']}枚</b>")
+                if meta.get("train_repeats"):
+                    train_parts.append(f"繰り返し回数 (n_repeats): <b>{meta['train_repeats']}回</b>")
+                if meta.get("orig_rank") and meta.get("orig_rank") > 0:
+                    train_parts.append(f"学習Rank: <b>{meta['orig_rank']}</b>")
+                if meta.get("train_steps"):
+                    train_parts.append(f"ステップ: <b>{meta['train_steps']:,}</b>")
+
+                train_html = ""
+                if train_parts:
+                    train_html = f"<br><span style='color:#0369a1;'>🎯 {t('main.labels.train_info_label')} " + " | ".join(train_parts) + "</span>"
+
                 desc = (
                     f"<b>{os.path.basename(item['orig_path'])}</b> | "
                     f"Type: <b>{meta.get('model_type', '-')}</b> | "
                     f"Rank: <span style='color:#2563eb; font-weight:bold;'>{meta.get('orig_rank_str', '-')}</span> | "
                     f"Sidecars: [Img: {img_str} / Meta: {meta_name}] | "
                     f"Dtype: <b>{meta.get('primary_dtype', '-')}</b>"
+                    f"{train_html}"
                 )
             self.lbl_inspector.setText(desc)
 

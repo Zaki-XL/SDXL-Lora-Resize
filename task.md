@@ -30,5 +30,10 @@
 - [x] `scratch/test_suite.py`: 診断ロジック、TE除去/減衰変換、サイズ推計、ダイアログ連携の自動テスト追加
 - [x] テスト実行（`scratch/validate_cmd.ps1` -> `scratch/temp_run.ps1` で全15件PASS、回帰テスト6件PASS、合計21件全PASS）
 - [x] 実ファイル `Uncensored_NoobaXLEpslon_v01.safetensors` での診断・判定検証
-- [/] レビュー報告書 (`doc/reviewer_report.md`) の作成・更新
-- [/] `walkthrough.md` の作成
+### 5. 追加フェーズ: 過学習検知拡充 & GUI常設TE除去オプション
+- [x] `src/quantizer/validator.py`: 過学習（少数画像×過多リピート・過多ステップ）、少数画像×高Rank、TE突出重みの自動診断ルール追加
+- [x] `lang/*.json` (ja, en, zh): GUI常設TE除去オプション用テキスト追加
+- [x] `src/gui/main_window.py`: 設定パネルに「Text Encoder を除去 (UNet のみにクリーンアップ)」チェックボックスを追加、動的推定再計算連動
+- [x] `src/gui/main_window.py` & `src/gui/health_dialog.py`: 学習画像枚数、繰り返し回数 (n_repeats)、学習Rank、ステップ数のGUI表示対応
+- [x] テスト・検証（実ファイル `double_vaginal.safetensors` での診断テスト & テストスイート全17件PASS）
+- [ ] ドキュメント更新 (`doc/reviewer_report.md`, `README.md`) & Git Commit/Push

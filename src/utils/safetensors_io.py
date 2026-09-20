@@ -238,6 +238,61 @@ def inspect_model_metadata(filepath: str) -> dict:
     vae_dtype_str = "/".join([DTYPE_NAMES.get(d, d) for d in vae_dtypes]) if vae_dtypes else "なし"
     summary = f"{primary_dtype_code} ({params_str})"
 
+    # 3. 学習パラメータの解析 (画像枚数、リピート数、ステップ数など)
+    train_img_count = None
+    train_repeats = None
+    train_steps = None
+    train_epochs = None
+
+    if "ss_num_train_images" in metadata:
+        try:
+            train_img_count = int(metadata["ss_num_train_images"])
+        except Exception:
+            pass
+
+    if "ss_dataset_dirs" in metadata:
+        try:
+            ds_info = json.loads(metadata["ss_dataset_dirs"])
+            if isinstance(ds_info, dict):
+                img_sum = 0
+                max_rep = 0
+                for _, d_val in ds_info.items():
+                    if isinstance(d_val, dict):
+                        rep = int(d_val.get("n_repeats", 0))
+                        cnt = int(d_val.get("img_count", 0))
+                        if rep > max_rep:
+                            max_rep = rep
+                        img_sum += cnt
+                if img_sum > 0:
+                    train_img_count = img_sum
+                if max_rep > 0:
+                    train_repeats = max_rep
+        except Exception:
+            pass
+
+    if "ss_max_train_steps" in metadata or "ss_steps" in metadata:
+        try:
+            train_steps = int(metadata.get("ss_max_train_steps") or metadata.get("ss_steps") or 0)
+        except Exception:
+            pass
+
+    if "ss_num_epochs" in metadata or "ss_epochs" in metadata:
+        try:
+            train_epochs = int(metadata.get("ss_num_epochs") or metadata.get("ss_epochs") or 0)
+        except Exception:
+            pass
+
+    info_parts = []
+    if train_img_count is not None:
+        info_parts.append(f"画像: {train_img_count}枚")
+    if train_repeats is not None:
+        info_parts.append(f"リピート: {train_repeats}回")
+    if orig_rank > 0:
+        info_parts.append(f"Rank: {orig_rank}")
+    if train_steps is not None and train_steps > 0:
+        info_parts.append(f"Steps: {train_steps:,}")
+    train_info_str = " | ".join(info_parts) if info_parts else ""
+
     return {
         "is_valid": True,
         "error_msg": "",
@@ -252,5 +307,10 @@ def inspect_model_metadata(filepath: str) -> dict:
         "tensor_count": len(tensors),
         "unet_count": unet_count,
         "vae_count": vae_count,
-        "vae_dtype": vae_dtype_str
+        "vae_dtype": vae_dtype_str,
+        "train_img_count": train_img_count,
+        "train_repeats": train_repeats,
+        "train_steps": train_steps,
+        "train_epochs": train_epochs,
+        "train_info_str": train_info_str
     }
