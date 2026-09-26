@@ -178,5 +178,55 @@ class TestBoundarySuite(unittest.TestCase):
         self.assertFalse(dlg_corrupt.rb_scale_te.isEnabled())
 
 
+    # ---------------- 6. 元Rankより大きいSVD Rank指定時の維持および命名規則テスト ----------------
+    def test_bva_06_rank_upscale_prevention_and_naming(self):
+        """元Rank以上のSVD Rank指定時に、SVDサフィックスが付与されず元Rankが維持されることの検証"""
+        from src.utils.naming import generate_output_path
+
+        input_path = "C:/models/test_lora.safetensors"
+        output_dir = "C:/output"
+
+        # Case A: orig_rank=16, svd_rank="32" (元Rankより大きい -> SVDサフィックス付与なし、元Rank維持)
+        out_a = generate_output_path(
+            input_path=input_path,
+            svd_rank="32",
+            precision_key="fp8_e4m3fn",
+            output_dir=output_dir,
+            orig_rank=16
+        )
+        self.assertNotIn("_rank32", out_a, "元Rank(16)より大きいSVD Rank(32)指定時はサフィックスが付与されないこと")
+        self.assertIn("_fp8_e4m3fn", out_a)
+
+        # Case B: orig_rank=16, svd_rank="16" (元Rankと同値 -> SVDサフィックス付与なし、元Rank維持)
+        out_b = generate_output_path(
+            input_path=input_path,
+            svd_rank="16",
+            precision_key="fp8_e4m3fn",
+            output_dir=output_dir,
+            orig_rank=16
+        )
+        self.assertNotIn("_rank16", out_b, "元Rankと同値のSVD Rank指定時もサフィックスが付与されないこと")
+
+        # Case C: orig_rank=64, svd_rank="32" (元Rankより小さい -> SVD縮小が実行されるためサフィックス付与)
+        out_c = generate_output_path(
+            input_path=input_path,
+            svd_rank="32",
+            precision_key="fp8_e4m3fn",
+            output_dir=output_dir,
+            orig_rank=64
+        )
+        self.assertIn("_rank32", out_c, "元Rank(64)より小さいSVD Rank(32)指定時は_rank32が付与されること")
+
+        # Case D: orig_rank=None, svd_rank="32" (元Rank不明時 -> 指定通りサフィックス付与)
+        out_d = generate_output_path(
+            input_path=input_path,
+            svd_rank="32",
+            precision_key="fp8_e4m3fn",
+            output_dir=output_dir,
+            orig_rank=None
+        )
+        self.assertIn("_rank32", out_d, "元Rank不明時は通常通りサフィックスが付与されること")
+
+
 if __name__ == '__main__':
     unittest.main()

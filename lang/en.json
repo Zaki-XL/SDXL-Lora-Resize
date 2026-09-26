@@ -63,7 +63,10 @@
       "verify_error_title": "Integrity Verification Error",
       "verify_error_msg": "Integrity verification failed for model <b>{filename}</b>.\nThe corrupt output file was automatically deleted for safety.\n\n[Error Details]\n{details}\n\nDo you want to continue processing the remaining files, or stop?",
       "btn_continue": "Continue Next (&C)",
-      "btn_stop": "Stop Processing (&S)"
+      "btn_stop": "Stop Processing (&S)",
+      "rank_upscale_warn_title": "Notice on SVD Rank Upscaling",
+      "rank_upscale_warn_msg": "The following files have an original rank smaller than the selected Target Rank (Rank {target_rank}). Expanding the rank does not improve quality and unnecessarily inflates file size.\n\nTherefore, the original rank will be preserved.\n\n[Affected Files]\n{file_list}\n\nDo you want to proceed with conversion?",
+      "rank_keep_log": "[Rank Preserved] {filename}: Preserving original rank (Rank {orig_rank}) (Skipped upscaling to Target Rank {target_rank})"
     },
     "health": {
       "dialog_title": "LoRA Health & Color Drift Diagnosis",

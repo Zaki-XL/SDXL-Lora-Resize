@@ -2,7 +2,7 @@
 import os
 from .gpu_info import PRECISION_OPTIONS
 
-def generate_output_path(input_path: str, svd_rank: str, precision_key: str, output_dir: str = "", te_action: str = "keep") -> str:
+def generate_output_path(input_path: str, svd_rank: str, precision_key: str, output_dir: str = "", te_action: str = "keep", orig_rank: int | None = None) -> str:
     """SVD Rank と 量子化精度、TE対策 を掛け合わせた出力先パスを生成"""
     base_dir = output_dir if (output_dir and os.path.isdir(output_dir)) else os.path.dirname(input_path)
     file_name = os.path.basename(input_path)
@@ -16,9 +16,14 @@ def generate_output_path(input_path: str, svd_rank: str, precision_key: str, out
     elif te_action == "scale_te":
         suffixes.append("_te_scaled")
 
-    # SVD Rank サフィックス
+    # SVD Rank サフィックス (元Rankより大きいTarget Rankが指定された場合は拡大を行わず維持するためサフィックス付与をスキップ)
     if svd_rank and svd_rank != "none":
-        suffixes.append(f"_rank{svd_rank}")
+        try:
+            target_r = int(svd_rank)
+            if orig_rank is None or orig_rank > target_r:
+                suffixes.append(f"_rank{svd_rank}")
+        except (ValueError, TypeError):
+            suffixes.append(f"_rank{svd_rank}")
 
     # 量子化サフィックス
     p_info = PRECISION_OPTIONS.get(precision_key, {})

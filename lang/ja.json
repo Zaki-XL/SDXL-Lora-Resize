@@ -63,7 +63,10 @@
       "verify_error_title": "整合性検証エラー",
       "verify_error_msg": "モデル <b>{filename}</b> の整合性検証でエラーが検出されました。\n破損した出力ファイルは安全のため自動削除されました。\n\n【エラー詳細】\n{details}\n\n残りのファイルの変換を継続しますか？それとも処理を停止しますか？",
       "btn_continue": "次のファイルを継続 (&C)",
-      "btn_stop": "処理を停止 (&S)"
+      "btn_stop": "処理を停止 (&S)",
+      "rank_upscale_warn_title": "SVD Rank 拡大に関する確認",
+      "rank_upscale_warn_msg": "以下のファイルは、指定された Target Rank (Rank {target_rank}) よりも元のRankが小さいため、Rankを拡大しても画質向上効果はなく容量が無駄に肥大化してしまいます。\n\nそのため、安全のため元のRankをそのまま維持して変換します。\n\n【対象ファイル】\n{file_list}\n\nこのまま変換を開始しますか？",
+      "rank_keep_log": "[Rank維持] {filename}: 元Rank (Rank {orig_rank}) を維持して変換します (Target Rank {target_rank} への拡大はスキップ)"
     },
     "health": {
       "dialog_title": "LoRA 健全性・色破綻リスク診断",

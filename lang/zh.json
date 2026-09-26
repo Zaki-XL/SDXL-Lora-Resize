@@ -63,7 +63,10 @@
       "verify_error_title": "完整性校验错误",
       "verify_error_msg": "模型 <b>{filename}</b> 的完整性校验未通过。\n为确保安全，已自动删除损坏的输出文件。\n\n【错误详情】\n{details}\n\n是否继续处理其余文件，还是立即停止？",
       "btn_continue": "继续下一个文件 (&C)",
-      "btn_stop": "停止处理 (&S)"
+      "btn_stop": "停止处理 (&S)",
+      "rank_upscale_warn_title": "关于 SVD Rank 放大的提示",
+      "rank_upscale_warn_msg": "以下文件的原始 Rank 小于所选的目标 Rank (Rank {target_rank})。放大 Rank 不会提升画质，只会徒增文件体积。\n\n因此，将自动保留其原始 Rank 进行转换。\n\n【受影响文件】\n{file_list}\n\n是否继续开始转换？",
+      "rank_keep_log": "[保留Rank] {filename}: 保留原始 Rank (Rank {orig_rank}) (跳过放大到目标 Rank {target_rank})"
     },
     "health": {
       "dialog_title": "LoRA 健康度与色彩崩溃风险诊断",

@@ -659,7 +659,8 @@ class MainWindow(QMainWindow):
                 self.log(f"[対策適用] {fn}: 対策={te_action} を設定しました")
 
             sidecars = find_associated_files(fp)
-            out_fp = generate_output_path(fp, svd_rank, prec_key, out_dir, te_action=te_action)
+            orig_r = meta.get("orig_rank")
+            out_fp = generate_output_path(fp, svd_rank, prec_key, out_dir, te_action=te_action, orig_rank=orig_r)
             orig, est, _ = estimate_quantized_size(fp, svd_rank, prec_key, keep_vae, te_action=te_action)
             status_key = "corrupt" if (not is_valid or health.get("is_corrupt")) else "waiting"
             self.file_data.append({
@@ -812,7 +813,8 @@ class MainWindow(QMainWindow):
 
         for item in self.file_data:
             te_act = item.get("te_action", "keep")
-            item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=te_act)
+            orig_r = item.get("meta", {}).get("orig_rank")
+            item["out_path"] = generate_output_path(item["orig_path"], svd_rank, prec_key, out_dir, te_action=te_act, orig_rank=orig_r)
             _, est, _ = estimate_quantized_size(item["orig_path"], svd_rank, prec_key, keep_vae, te_action=te_act)
             item["est_size"] = est
         self.refresh_table()
@@ -1051,6 +1053,39 @@ class MainWindow(QMainWindow):
 
         file_list = [item["orig_path"] for item in valid_items]
         svd_rank = self.combo_rank.currentData()
+
+        # SVD Rank 拡大の事前チェックとユーザーアナウンス (元Rankより大きいTarget Rank指定時は元Rankを維持し開始前に通知)
+        if svd_rank and svd_rank != "none":
+            try:
+                target_r = int(svd_rank)
+                upscale_items = []
+                for it in valid_items:
+                    orig_r = it.get("meta", {}).get("orig_rank")
+                    if orig_r and 0 < orig_r < target_r:
+                        upscale_items.append((it, orig_r))
+
+                if upscale_items:
+                    file_list_str = "\n".join(
+                        f"• {os.path.basename(it['orig_path'])} (元: Rank {orig_r} → 維持)"
+                        for it, orig_r in upscale_items
+                    )
+                    reply = QMessageBox.question(
+                        self,
+                        t("main.dialogs.rank_upscale_warn_title"),
+                        t("main.dialogs.rank_upscale_warn_msg", target_rank=target_r, file_list=file_list_str),
+                        QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                        QMessageBox.StandardButton.Ok
+                    )
+                    if reply != QMessageBox.StandardButton.Ok:
+                        self.log("[中断] ユーザーにより変換開始がキャンセルされました。")
+                        return
+
+                    for it, orig_r in upscale_items:
+                        fn = os.path.basename(it["orig_path"])
+                        self.log(t("main.dialogs.rank_keep_log", filename=fn, orig_rank=orig_r, target_rank=target_r))
+            except (ValueError, TypeError):
+                pass
+
         prec_key = self.combo_precision.currentData()
         out_dir = self.config.get("output_dir", "")
         keep_vae = self.cb_keep_vae.isChecked()
