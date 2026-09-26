@@ -4,7 +4,7 @@ import time
 import torch
 from safetensors.torch import load_file, save_file
 from .base import BaseQuantizer
-from ..utils.safetensors_io import is_vae_tensor
+from ..utils.safetensors_io import is_vae_tensor, is_sensitive_precision_tensor
 
 class FP8Quantizer(BaseQuantizer):
     def __init__(self, mode: str = "e4m3fn", keep_vae_fp16: bool = True):
@@ -46,8 +46,9 @@ class FP8Quantizer(BaseQuantizer):
                         log_callback("[中断] 処理が中止されました。")
                     return False
 
-                if self.keep_vae_fp16 and is_vae_tensor(k):
-                    # VAEはFP16で保持
+                is_protected = (self.keep_vae_fp16 and is_vae_tensor(k)) or is_sensitive_precision_tensor(k)
+                if is_protected:
+                    # VAEや高感度テンソル(DoRA/Norm/alpha)はFP16で保持
                     if tensor.dtype in (torch.float32, torch.float64):
                         quantized_dict[k] = tensor.to(dtype=torch.float16)
                     else:

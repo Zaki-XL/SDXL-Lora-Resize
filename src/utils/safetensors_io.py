@@ -54,6 +54,25 @@ def is_vae_tensor(tensor_name: str) -> bool:
         name_lower.startswith("decoder.")
     )
 
+def is_sensitive_precision_tensor(tensor_name: str) -> bool:
+    """
+    量子化時に精度を維持すべき高感度テンソル（DoRA scale、alpha、正規化層バイアス・重み等）かを判定します。
+    これらを FP8 や INT8 に低ビット量子化すると、ノルム爆発やアンダーフローにより画質が致命的に破綻します。
+    """
+    nl = tensor_name.lower()
+    return (
+        "alpha" in nl or
+        "dora" in nl or
+        "b_norm" in nl or
+        "w_norm" in nl or
+        nl.endswith(".bias") or
+        "_norm.bias" in nl or
+        "_norm.weight" in nl or
+        "norm.bias" in nl or
+        "norm.weight" in nl
+    )
+
+
 def inspect_model_metadata(filepath: str) -> dict:
     """
     Safetensorsヘッダーからモデル種別・元Rank・主要精度・パラメータ数・レイヤー構成を詳細解析します。

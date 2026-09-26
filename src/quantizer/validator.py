@@ -257,8 +257,9 @@ def diagnose_lora_health(filepath: str) -> dict:
         tensors = load_file(filepath, device="cpu")
         with torch.inference_mode():
             for k, t in tensors.items():
-                if "alpha" in k.lower() or not t.is_floating_point():
+                if not t.is_floating_point():
                     continue
+                kl = k.lower()
                 t_f = t.to(torch.float32)
                 if not torch.isfinite(t_f).all():
                     if torch.isnan(t_f).any():
@@ -266,8 +267,12 @@ def diagnose_lora_health(filepath: str) -> dict:
                     if torch.isinf(t_f).any():
                         inf_found = True
                 
+                # 重み変化量のスキャン対象からは、スカラー(alpha)およびDoRAノルムベクトル(dora_scale)を除外
+                if "alpha" in kl or "dora" in kl:
+                    continue
+
                 m = torch.max(torch.abs(t_f)).item()
-                if any(sub in k.lower() for sub in ("lora_te", "text_model")):
+                if any(sub in kl for sub in ("lora_te", "text_model")):
                     if m > max_te_abs:
                         max_te_abs = m
                 else:
@@ -314,9 +319,10 @@ def diagnose_lora_health(filepath: str) -> dict:
             clip_overfit_reasons.append(f"大量ステップ ({steps:,} steps) の学習により CLIP 空間が歪曲しているリスクがあります。")
 
         # 判定条件4: 少数画像に対する過剰リピート・過大ステップ比率（丸暗記・構図破綻リスク）
-        if img_count > 0:
+        # ※ 総ステップ数が2,500未満の通常学習モデルでは誤検知となるため、十分なステップ数(>=2500)を前提とする
+        if img_count > 0 and steps >= 2500:
             step_per_img = (steps / img_count) if steps > 0 else 0
-            if img_count <= 250 and (max_repeats >= 30 or step_per_img >= 30):
+            if img_count <= 250 and (max_repeats >= 30 or step_per_img >= 40):
                 rep_str = f"リピート数 {max_repeats}回" if max_repeats > 0 else f"1枚あたり {step_per_img:.1f} steps"
                 clip_overfit_reasons.append(
                     f"少数画像 ({img_count}枚) に対する過剰な繰り返し学習 ({rep_str}, 計 {steps:,} steps) により、深刻な過学習・ポーズ/構図破綻のリスクがあります。"
@@ -344,11 +350,26 @@ def diagnose_lora_health(filepath: str) -> dict:
         if result["risk_level"] != "danger":
             result["risk_level"] = "warning"
         result["issues"].extend(clip_overfit_reasons)
-        result["suggestions"].append("Text Encoder を除去して UNet のみにクリーンアップすることで色破綻や過剰な歪みを防止できます（推奨）。")
-        result["suggestions"].append("Text Encoder の強度を 0.2 などに減衰させることで色調・構図の崩壊を抑制できます。")
+
+        # Text Encoder 自体の直接的過学習（高LR、重み突出、Epsilonモデル）の判定
+        has_direct_te_overfit = (
+            (te_lr is not None and (te_lr >= 2e-4 or (unet_lr is not None and te_lr >= 1e-4 and te_lr >= unet_lr * 0.8))) or
+            (max_te_abs > 0.20) or
+            (max_te_abs >= 0.15 and max_unet_abs > 0 and (max_te_abs >= max_unet_abs * 2.0)) or
+            ("noobai" in base_lower and "epsilon" in (pred_type.lower() + base_lower))
+        )
+
+        if has_direct_te_overfit:
+            result["suggestions"].append("Text Encoder を除去して UNet のみにクリーンアップすることで色破綻や過剰な歪みを防止できます（推奨）。")
+            result["suggestions"].append("Text Encoder の強度を 0.2 などに減衰させることで色調・構図の崩壊を抑制できます。")
+            result["suggested_action"] = "drop_te"
+        else:
+            result["suggestions"].append("Text Encoder 自体は過学習していないため保持を推奨します（生成時のLoRA強度を 0.6〜0.8 程度に下げて過学習を緩和してください）。")
+            result["suggestions"].append("構図破綻が改善しない場合のみ、Text Encoder 除去または強度減衰をお試しください。")
+            result["suggested_action"] = "keep"
+
         if network_dim >= 64:
             result["suggestions"].append(f"Rank リサイズで Rank 32〜64 程度に圧縮することで、過学習成分を削ぎ落とせます。")
-        result["suggested_action"] = "drop_te"
 
     return result
 

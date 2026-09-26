@@ -129,20 +129,35 @@ class LoRAHealthDialog(QDialog):
         self.btn_group = QButtonGroup(self)
 
         is_corrupt = self.health.get("is_corrupt", False)
+        suggested = self.health.get("suggested_action", "drop_te")
+
+        drop_text = t("main.health.opt_drop_te")
+        keep_text = t("main.health.opt_keep")
+
+        if suggested == "keep":
+            # TE除去から【推奨】を外し、そのまま保持に【推奨】を付与
+            drop_text = drop_text.replace("【推奨】", "").replace("[Recommended] ", "").strip()
+            if not keep_text.startswith("【推奨】") and not keep_text.startswith("[Recommended]"):
+                keep_text = f"【推奨】{keep_text}"
 
         # 選択肢1: TE除去
-        self.rb_drop_te = QRadioButton(t("main.health.opt_drop_te"))
-        self.rb_drop_te.setStyleSheet("font-weight: bold; color: #2563eb;")
+        self.rb_drop_te = QRadioButton(drop_text)
+        if suggested == "drop_te":
+            self.rb_drop_te.setStyleSheet("font-weight: bold; color: #2563eb;")
         self.btn_group.addButton(self.rb_drop_te, 1)
         opts_layout.addWidget(self.rb_drop_te)
 
         # 選択肢2: TE減衰
         self.rb_scale_te = QRadioButton(t("main.health.opt_scale_te"))
+        if suggested == "scale_te":
+            self.rb_scale_te.setStyleSheet("font-weight: bold; color: #2563eb;")
         self.btn_group.addButton(self.rb_scale_te, 2)
         opts_layout.addWidget(self.rb_scale_te)
 
         # 選択肢3: そのまま保持
-        self.rb_keep = QRadioButton(t("main.health.opt_keep"))
+        self.rb_keep = QRadioButton(keep_text)
+        if suggested == "keep":
+            self.rb_keep.setStyleSheet("font-weight: bold; color: #16a34a;")
         self.btn_group.addButton(self.rb_keep, 3)
         opts_layout.addWidget(self.rb_keep)
 
@@ -151,7 +166,12 @@ class LoRAHealthDialog(QDialog):
             self.rb_scale_te.setEnabled(False)
             self.rb_keep.setChecked(True)
         else:
-            self.rb_drop_te.setChecked(True)
+            if suggested == "keep":
+                self.rb_keep.setChecked(True)
+            elif suggested == "scale_te":
+                self.rb_scale_te.setChecked(True)
+            else:
+                self.rb_drop_te.setChecked(True)
 
         main_layout.addWidget(opts_frame)
 

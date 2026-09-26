@@ -4,7 +4,7 @@ import time
 import torch
 from safetensors.torch import load_file, save_file
 from .base import BaseQuantizer
-from ..utils.safetensors_io import is_vae_tensor, read_safetensors_header
+from ..utils.safetensors_io import is_vae_tensor, is_sensitive_precision_tensor, read_safetensors_header
 
 from .svd_resizer import low_rank_svd, find_lora_pairs
 
@@ -165,9 +165,13 @@ class CombinedPipelineConverter(BaseQuantizer):
                     elif ("lora_up" in k.lower() or "hada_w1_a" in k.lower()) and tensor.is_floating_point():
                         tensor = tensor * self.te_scale
 
-                if self.keep_vae_fp16 and is_vae_tensor(k):
-                    if tensor.dtype in (torch.float32, torch.float64):
-                        final_dict[k] = tensor.to(torch.float16)
+                is_protected = (self.keep_vae_fp16 and is_vae_tensor(k)) or is_sensitive_precision_tensor(k)
+                if is_protected:
+                    if tensor.is_floating_point():
+                        if tensor.dtype in (torch.float32, torch.float64):
+                            final_dict[k] = tensor.to(torch.float16)
+                        else:
+                            final_dict[k] = tensor
                     else:
                         final_dict[k] = tensor
                 elif self.precision_key == "keep":

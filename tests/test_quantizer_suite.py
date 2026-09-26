@@ -186,5 +186,70 @@ class TestSDXLQuantizerSuite(unittest.TestCase):
         self.assertEqual(out_meta.get("ss_network_dim"), "16")
         self.assertEqual(out_meta.get("ss_network_alpha"), "0.5")
 
+    def test_dora_health_diagnosis_no_false_positive(self):
+        """DoRAのdora_scale (ノルム3.5) をTE重み過学習と誤検知しないことの検証"""
+        from src.quantizer.validator import diagnose_lora_health
+        dora_dummy_path = os.path.join(self.test_dir, "test_dora_model.safetensors")
+        tensors = {
+            "lora_te1_text_model_encoder_layers_0.lora_down.weight": torch.full((16, 768), 0.02, dtype=torch.float16),
+            "lora_te1_text_model_encoder_layers_0.lora_up.weight": torch.full((768, 16), 0.02, dtype=torch.float16),
+            "lora_te1_text_model_encoder_layers_0.alpha": torch.tensor(16.0, dtype=torch.float16),
+            "lora_te1_text_model_encoder_layers_0.dora_scale": torch.full((1, 768), 3.5, dtype=torch.float16),
+            "lora_unet_down_blocks_0.lora_down.weight": torch.full((16, 320), 0.02, dtype=torch.float16),
+            "lora_unet_down_blocks_0.lora_up.weight": torch.full((320, 16), 0.02, dtype=torch.float16),
+        }
+        metadata = {
+            "ss_network_dim": "16",
+            "ss_network_alpha": "16",
+            "ss_text_encoder_lr": "5e-5",
+            "ss_unet_lr": "1e-4",
+            "ss_max_train_steps": "1000",
+            "ss_num_train_images": "100"
+        }
+        save_file(tensors, dora_dummy_path, metadata=metadata)
+
+        diag = diagnose_lora_health(dora_dummy_path)
+        # dora_scale (3.5) に起因する「重み変化量が異常値」という誤検知が発生しないこと
+        for issue in diag.get("issues", []):
+            self.assertNotIn("重み変化量が異常値", issue)
+        self.assertFalse(diag.get("has_clip_overfit", False))
+        self.assertEqual(diag.get("suggested_action"), "none")
+
+    def test_sensitive_tensor_quantization_protection(self):
+        """FP8量子化時に dora_scale, alpha, b_norm, bias が FP16 で保護され、主重みのみFP8化されることの検証"""
+        model_path = os.path.join(self.test_dir, "test_sensitive_model.safetensors")
+        tensors = {
+            "lora_unet_layer.lora_down.weight": torch.randn(16, 320, dtype=torch.float32),
+            "lora_unet_layer.lora_up.weight": torch.randn(320, 16, dtype=torch.float32),
+            "lora_unet_layer.alpha": torch.tensor(16.0, dtype=torch.float32),
+            "lora_unet_layer.dora_scale": torch.full((1, 320), 1.25, dtype=torch.float32),
+            "lora_unet_layer.b_norm": torch.full((320,), 0.002, dtype=torch.float32),
+            "lora_unet_layer.bias": torch.full((320,), 0.01, dtype=torch.float32),
+        }
+        save_file(tensors, model_path)
+
+        out_path = os.path.join(self.test_dir, "out_sensitive_fp8.safetensors")
+        converter = CombinedPipelineConverter(svd_rank="none", precision_key="fp8_e4m3fn", keep_vae_fp16=True)
+        success = converter.process(model_path, out_path)
+        self.assertTrue(success)
+
+        res = load_file(out_path)
+        # 主重みは FP8 (float8_e4m3fn) に量子化
+        self.assertEqual(res["lora_unet_layer.lora_down.weight"].dtype, torch.float8_e4m3fn)
+        self.assertEqual(res["lora_unet_layer.lora_up.weight"].dtype, torch.float8_e4m3fn)
+
+        # 高感度テンソルは FP16 で厳格に保護
+        self.assertEqual(res["lora_unet_layer.alpha"].dtype, torch.float16)
+        self.assertEqual(res["lora_unet_layer.dora_scale"].dtype, torch.float16)
+        self.assertEqual(res["lora_unet_layer.b_norm"].dtype, torch.float16)
+        self.assertEqual(res["lora_unet_layer.bias"].dtype, torch.float16)
+
+        # 値の保持確認
+        self.assertAlmostEqual(res["lora_unet_layer.alpha"].item(), 16.0, places=3)
+        self.assertAlmostEqual(res["lora_unet_layer.dora_scale"][0, 0].item(), 1.25, places=3)
+        self.assertAlmostEqual(res["lora_unet_layer.b_norm"][0].item(), 0.002, places=4)
+
+
 if __name__ == '__main__':
     unittest.main()
+
